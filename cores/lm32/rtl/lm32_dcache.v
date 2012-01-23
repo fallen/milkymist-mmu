@@ -112,6 +112,21 @@ parameter bytes_per_line = 16;                          // Number of bytes per c
 parameter base_address = 0;                             // Base address of cachable memory
 parameter limit = 0;                                    // Limit (highest address) of cachable memory
 
+parameter dtlb_sets = 1024;				// Number of lines of DTLB
+parameter page_size = 4096;				// System page size
+
+localparam addr_page_offset_lsb = 0;
+localparam addr_page_offset_msb = addr_page_offset_lsb + clogb2(page_size) - 1;
+localparam addr_dtlbindex_width = clogb2(dtlb_sets);
+localparam addr_dtlbindex_lsb = addr_page_offset_msb + 1;
+localparam addr_dtlbindex_msb = addr_dtlbindex_lsb + addr_dtlbindex_width;
+localparam addr_vpfn_lsb = addr_dtlbindex_msb + 1;
+localparam addr_vpfn_msb = 31;
+localparam vpfn_width = 32 - clogb2(page_size);
+localparam addr_dtlb_tag_width = vpfn_width - addr_dtlbindex_width;
+localparam addr_dtlb_tag_lsb = addr_dtlbindex_msb + 1;
+localparam addr_dtlb_tag_msb = addr_dtlb_tag_lsb + addr_dtlb_tag_width;
+
 localparam addr_offset_width = clogb2(bytes_per_line)-1-2;
 localparam addr_set_width = clogb2(sets)-1;
 localparam addr_offset_lsb = 2;
@@ -296,6 +311,7 @@ genvar i, j;
 generate
     for (i = 0; i < associativity; i = i + 1)
     begin : match
+// FIXME : We need to put physical address coming out from MMU instead of address_m[]
 assign way_match[i] = ({way_tag[i], way_valid[i]} == {address_m[`LM32_DC_ADDR_TAG_RNG], `TRUE});
     end
 endgenerate
