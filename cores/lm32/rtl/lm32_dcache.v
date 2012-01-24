@@ -115,16 +115,18 @@ parameter limit = 0;                                    // Limit (highest addres
 parameter dtlb_sets = 1024;				// Number of lines of DTLB
 parameter page_size = 4096;				// System page size
 
+`define LM32_DTLB_IDX_RNG	addr_dtlb_index_msb:addr_dtlb_index_lsb
+
 localparam addr_page_offset_lsb = 0;
 localparam addr_page_offset_msb = addr_page_offset_lsb + clogb2(page_size) - 1;
-localparam addr_dtlbindex_width = clogb2(dtlb_sets);
-localparam addr_dtlbindex_lsb = addr_page_offset_msb + 1;
-localparam addr_dtlbindex_msb = addr_dtlbindex_lsb + addr_dtlbindex_width;
-localparam addr_vpfn_lsb = addr_dtlbindex_msb + 1;
+localparam addr_dtlb_index_width = clogb2(dtlb_sets);
+localparam addr_dtlb_index_lsb = addr_page_offset_msb + 1;
+localparam addr_dtlb_index_msb = addr_dtlb_index_lsb + addr_dtlb_index_width;
+localparam addr_vpfn_lsb = addr_dtlb_index_msb + 1;
 localparam addr_vpfn_msb = 31;
 localparam vpfn_width = 32 - clogb2(page_size);
-localparam addr_dtlb_tag_width = vpfn_width - addr_dtlbindex_width;
-localparam addr_dtlb_tag_lsb = addr_dtlbindex_msb + 1;
+localparam addr_dtlb_tag_width = vpfn_width - addr_dtlb_index_width;
+localparam addr_dtlb_tag_lsb = addr_dtlb_index_msb + 1;
 localparam addr_dtlb_tag_msb = addr_dtlb_tag_lsb + addr_dtlb_tag_width;
 
 localparam addr_offset_width = clogb2(bytes_per_line)-1-2;
@@ -221,6 +223,52 @@ genvar i, j;
 // Instantiations
 /////////////////////////////////////////////////////
 
+
+// DTLB instantiation
+lm32_ram 
+  #(
+    // ----- Parameters -------
+    .data_width (32),
+    .address_width (addr_dtlbindex_width)
+// Modified for Milkymist: removed non-portable RAM parameters
+    ) dtlb_data_ram 
+    (
+     // ----- Inputs -------
+     .read_clk (clk_i),
+     .write_clk (clk_i),
+     .reset (rst_i),
+     .read_address (dtlb_data_read_address),
+     .enable_read (dtlb_data_read_port_enable),
+     .write_address (dtlb_data_write_address),
+     .enable_write (`TRUE),
+     .write_enable (dtlb_write_enable),
+     .write_data (dtlb_write_data),    
+     // ----- Outputs -------
+     .read_data (dtlb_read_data)
+     );
+
+lm32_ram 
+  #(
+    // ----- Parameters -------
+    .data_width (32),
+    .address_width (addr_dtlb_tag_width)
+// Modified for Milkymist: removed non-portable RAM parameters
+    ) dtlb_tag_ram 
+    (
+     // ----- Inputs -------
+     .read_clk (clk_i),
+     .write_clk (clk_i),
+     .reset (rst_i),
+     .read_address (dtlb_tag_read_address),
+     .enable_read (dtlb_tag_read_port_enable),
+     .write_address (dtlb_tag_write_address),
+     .enable_write (`TRUE),
+     .write_enable (dtlb_write_enable),
+     .write_data (dtlb_write_tag),    
+     // ----- Outputs -------
+     .read_data (dtlb_read_tag)
+     );
+    
    generate
       for (i = 0; i < associativity; i = i + 1)    
 	begin : memories
@@ -376,6 +424,29 @@ assign tmem_write_address = (flushing == `TRUE)
                             : refill_address[`LM32_DC_ADDR_SET_RNG];
 assign tmem_read_address = address_x[`LM32_DC_ADDR_SET_RNG];
 
+// Compute address to use to index into the DTLB data memory
+assign dtlb_data_read_address = address_x[`LM32_DTLB_IDX_RNG];
+assign dtlb_tag_read_address = address_x[`LM32_DTLB_IDX_RNG];
+
+// tlb_update_address will receive data from a CSR register
+assign dtlb_data_write_address = (updating_tlb == `TRUE)
+				 ? tlb_update_set
+				 : tlb_update_address_csr_reg[`LM32_DTLB_IDX_RNG];
+
+assign dtlb_tag_write_address = (flushing_tlb == `TRUE)
+				? tlb_flush_set
+				: tlb_update_address_csr_reg[`LM32_DTLB_IDX_RNG];
+
+assign dtlb_data_read_port_enable = `TRUE;
+assign dtlb_write_port_enable = updating_tlb || flushing_tlb;
+assign dtlb_write_tag = (flushing_tlb == `TRUE)
+			? {32{1'd1}} // Let say 0xFFFFFFFF is an invalid physical address
+			: tlb_update_tag_csr_reg;
+
+assign physical_address_x = (kernel_mode_csr == `KERNEL_MODE)
+			    ? address_x
+			    : { dtlb_read_tag, address_x[`LM32_PAGE_OFFSET_RNG];
+
 // Compute signal to indicate when we are on the last refill accesses
 generate 
     if (bytes_per_line > 4)                            
@@ -503,6 +574,33 @@ begin
         
         endcase        
     end
+end
+
+always @(posedge clk_i `CFG_RESET_SENSITIVITY)
+begin
+	if (rst_i == `TRUE)
+	begin
+		tlb_state <= `LM32_TLB_STATE_CHECK;
+	end
+	else
+	begin
+		case (tlb_state)
+
+		`LM32_TLB_STATE_CHECK:
+		begin
+			if (tlb_miss == `TRUE)
+			begin
+				// FIXME : We need to generate an exception
+				tlb_miss_addr <= address_m;
+			end
+			else if (tlb_update == `TRUE)
+			begin
+
+			end
+		end
+
+		endcase
+	end
 end
 
 generate
