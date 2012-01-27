@@ -280,6 +280,9 @@
 `define LM32_CSR_WP1                    `LM32_CSR_WIDTH'h19
 `define LM32_CSR_WP2                    `LM32_CSR_WIDTH'h1a
 `define LM32_CSR_WP3                    `LM32_CSR_WIDTH'h1b
+`define LM32_CSR_DTLB_FLUSH		`LM32_CSR_WIDTH'h1c
+`define LM32_CSR_DTLB_VADDRESS		`LM32_CSR_WIDTH'h1d
+`define LM32_CSR_DTLB_PADDRESS		`LM32_CSR_WIDTH'h1e
 `endif 
 
 // Values for WPC CSR
