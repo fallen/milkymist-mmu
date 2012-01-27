@@ -53,6 +53,9 @@
 
 `ifdef CFG_DCACHE_ENABLED
 
+`define LM32_KERNEL_MODE		 1
+`define LM32_USER_MODE			 0
+
 `define LM32_DC_ADDR_OFFSET_RNG          addr_offset_msb:addr_offset_lsb
 `define LM32_DC_ADDR_SET_RNG             addr_set_msb:addr_set_lsb
 `define LM32_DC_ADDR_TAG_RNG             addr_tag_msb:addr_tag_lsb
@@ -119,6 +122,7 @@ parameter page_size = 4096;				// System page size
 `define LM32_DTLB_INVALID_ADDRESS	{ `LM32_WORD_WIDTH{ 1'b1 } }
 `define LM32_DTLB_INVALID_TAG		{ 10{ 1'b1 } }
 `define LM32_DTLB_ADDRESS_PFN_RNG	addr_pfn_msb:addr_pfn_lsb
+`define LM32_PAGE_OFFSET_RNG		addr_page_offset_msb:addr_page_offset_lsb
 
 localparam addr_page_offset_lsb = 0;
 localparam addr_page_offset_msb = addr_page_offset_lsb + clogb2(page_size) - 1;
@@ -131,6 +135,8 @@ localparam vpfn_width = `LM32_WORD_WIDTH - clogb2(page_size);
 localparam addr_dtlb_tag_width = vpfn_width - addr_dtlb_index_width;
 localparam addr_dtlb_tag_lsb = addr_dtlb_index_msb + 1;
 localparam addr_dtlb_tag_msb = addr_dtlb_tag_lsb + addr_dtlb_tag_width;
+
+`define LM32_DTLB_TAG_INVALID		{ addr_dtlb_tag_width{ 1'b1 } }
 
 localparam addr_offset_width = clogb2(bytes_per_line)-1-2;
 localparam addr_set_width = clogb2(sets)-1;
@@ -227,9 +233,9 @@ wire [`LM32_DTLB_IDX_RNG] dtlb_tag_write_address;
 wire [`LM32_DTLB_ADDRESS_PFN_RNG] dtlb_write_tag;
 wire [`LM32_DTLB_ADDRESS_PFN_RNG] dtlb_read_tag;
 
-reg kernel_mode_csr_reg = `LM32_KERNEL_MODE;
-reg [`LM32_WORD_RNG] tlb_update_vaddr_csr_reg = `LM32_WORD_RNG'd0;
-reg [`LM32_WORD_RNG] tlb_update_paddr_csr_reg = `LM32_WORD_RNG'd0;
+reg kernel_mode_reg = `LM32_KERNEL_MODE;
+reg [`LM32_WORD_RNG] tlb_update_vaddr_csr_reg = `LM32_WORD_WIDTH'd0;
+reg [`LM32_WORD_RNG] tlb_update_paddr_csr_reg = `LM32_WORD_WIDTH'd0;
 
 genvar i, j;
 
@@ -408,9 +414,9 @@ generate
 //assign way_match[i] = ({way_tag[i], way_valid[i]} == {address_m[`LM32_DC_ADDR_TAG_RNG], `TRUE});
 always @(*)
 begin
-	if (kernel_mode_csr_reg == `LM32_KERNEL_MODE)
+	if (kernel_mode_reg == `LM32_KERNEL_MODE)
 		way_match[i] = ({way_tag[i], way_valid[i]} == {address_m[`LM32_DC_ADDR_TAG_RNG], `TRUE});
-	else if (dtlb_read_tag == `LM32_DTLG_TAG_INVALID) // DTLB tag is invalid
+	else if (dtlb_read_tag == `LM32_DTLB_TAG_INVALID) // DTLB tag is invalid
 		way_match[i] = `FALSE;
 	else
 		way_match[i] = ({way_tag[i], way_valid[i]} == {dtlb_read_data, `TRUE});
@@ -497,7 +503,7 @@ assign dtlb_write_tag = (flushing_tlb == `TRUE)
 			? `LM32_DTLB_INVALID_TAG
 			: tlb_update_vaddr_csr_reg[31:22]; // 10 top VA bits
 
-assign physical_address_x = (kernel_mode_csr_reg == `KERNEL_MODE)
+assign physical_address_x = (kernel_mode_reg == `LM32_KERNEL_MODE)
 			    ? address_x
 			    : { dtlb_read_tag, address_x[`LM32_PAGE_OFFSET_RNG] };
 
