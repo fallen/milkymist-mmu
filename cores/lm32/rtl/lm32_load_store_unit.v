@@ -95,6 +95,9 @@ module lm32_load_store_unit (
 `ifdef CFG_IROM_ENABLED
     irom_data_m,
 `endif
+    csr,
+    csr_write_data,
+    csr_write_enable,
     // From Wishbone
     d_dat_i,
     d_ack_i,
@@ -116,6 +119,7 @@ module lm32_load_store_unit (
 `endif			     
     load_data_w,
     stall_wb_load,
+    csr_read_data,
     // To Wishbone
     d_dat_o,
     d_adr_o,
@@ -156,6 +160,11 @@ input stall_m;                                          // M stage stall
 input kill_x;                                           // Kill instruction in X stage
 input kill_m;                                           // Kill instruction in M stage
 input exception_m;                                      // An exception occured in the M stage
+
+input [`LM32_CSR_RNG] csr;				// CSR read/write index
+input [`LM32_WORD_RNG] csr_write_data;			// Data to write to specified CSR
+input csr_write_enable;					// CSR write enable
+
 
 input [`LM32_WORD_RNG] store_operand_x;                 // Data read from register to store
 input [`LM32_WORD_RNG] load_store_address_x;            // X stage load/store address
@@ -213,6 +222,9 @@ output [`LM32_WORD_RNG] load_data_w;                    // Result of a load inst
 reg    [`LM32_WORD_RNG] load_data_w;
 output stall_wb_load;                                   // Request to stall pipeline due to a load from the Wishbone interface
 reg    stall_wb_load;
+
+output [`LM32_WORD_RNG] csr_read_data;			// Data read from CSR
+wire    [`LM32_WORD_RNG] csr_read_data;
 
 output [`LM32_WORD_RNG] d_dat_o;                        // Data Wishbone interface write data
 reg    [`LM32_WORD_RNG] d_dat_o;
@@ -396,13 +408,17 @@ lm32_dcache #(
     .refill_ready           (dcache_refill_ready),
     .refill_data            (wb_data_m),
     .dflush                 (dflush),
+    .csr		    (csr),
+    .csr_write_data	    (csr_write_data),
+    .csr_write_enable	    (csr_write_enable),
     // ----- Outputs -----
     .stall_request          (dcache_stall_request),
     .restart_request        (dcache_restart_request),
     .refill_request         (dcache_refill_request),
     .refill_address         (dcache_refill_address),
     .refilling              (dcache_refilling),
-    .load_data              (dcache_data_m)
+    .load_data              (dcache_data_m),
+    .csr_read_data	    (csr_read_data)
     );
 `endif
 

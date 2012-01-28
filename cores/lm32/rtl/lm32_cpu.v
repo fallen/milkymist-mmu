@@ -627,6 +627,8 @@ reg [`LM32_WORD_RNG] cc;                        // Cycle counter CSR
 `endif
 reg [`LM32_WORD_RNG] csr_read_data_x;           // Data read from CSRs
 
+wire [`LM32_WORD_RNG] dtlb_csr_read_data_x;
+
 // To/from instruction unit
 wire [`LM32_PC_RNG] pc_f;                       // PC of instruction in F stage
 wire [`LM32_PC_RNG] pc_d;                       // PC of instruction in D stage
@@ -1002,6 +1004,9 @@ lm32_load_store_unit #(
 `ifdef CFG_IROM_ENABLED
     .irom_data_m            (irom_data_m),
 `endif
+    .csr		    (csr_x),
+    .csr_write_data         (operand_1_x),
+    .csr_write_enable       (csr_write_enable_q_x),
     // From Wishbone
     .d_dat_i                (D_DAT_I),
     .d_ack_i                (D_ACK_I),
@@ -1023,6 +1028,7 @@ lm32_load_store_unit #(
 `endif
     .load_data_w            (load_data_w),
     .stall_wb_load          (stall_wb_load),
+    .csr_read_data	    (dtlb_csr_read_data),
     // To Wishbone
     .d_dat_o                (D_DAT_O),
     .d_adr_o                (D_ADR_O),

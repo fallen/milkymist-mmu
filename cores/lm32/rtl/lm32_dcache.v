@@ -98,13 +98,18 @@ module lm32_dcache (
     refill_ready,
     refill_data,
     dflush,
+    csr,
+    csr_write_data,
+    csr_write_enable,
     // ----- Outputs -----
     stall_request,
     restart_request,
     refill_request,
     refill_address,
     refilling,
-    load_data
+    load_data,
+   // To pipeline
+    csr_read_data
     );
 
 /////////////////////////////////////////////////////
@@ -173,6 +178,11 @@ input [`LM32_WORD_RNG] refill_data;                     // Refill data
 
 input dflush;                                           // Indicates cache should be flushed
 
+
+input [`LM32_CSR_RNG] csr;				// CSR read/write index
+input [`LM32_WORD_RNG] csr_write_data;			// Data to write to specified CSR
+input csr_write_enable;					// CSR write enable
+
 /////////////////////////////////////////////////////
 // Outputs
 /////////////////////////////////////////////////////
@@ -189,6 +199,9 @@ output refilling;                                       // Indicates if the cach
 reg    refilling;
 output [`LM32_WORD_RNG] load_data;                      // Data read from cache
 wire   [`LM32_WORD_RNG] load_data;
+
+output [`LM32_WORD_RNG] csr_read_data;			// Data read from CSR
+reg    [`LM32_WORD_RNG] csr_read_data;
 
 /////////////////////////////////////////////////////
 // Internal nets and registers 
