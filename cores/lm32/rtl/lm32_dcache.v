@@ -76,7 +76,8 @@
 `define LM32_DC_STATE_CHECK              3'b010
 `define LM32_DC_STATE_REFILL             3'b100
 
-`define LM32_TLB_STATE_CHECK		 3'b001
+`define LM32_TLB_STATE_CHECK		 2'b01
+`define LM32_TLB_STATE_FLUSH		 2'b10
 
 /////////////////////////////////////////////////////
 // Module interface
@@ -201,7 +202,7 @@ output [`LM32_WORD_RNG] load_data;                      // Data read from cache
 wire   [`LM32_WORD_RNG] load_data;
 
 output [`LM32_WORD_RNG] csr_read_data;			// Data read from CSR
-reg    [`LM32_WORD_RNG] csr_read_data;
+reg    [`LM32_WORD_RNG] csr_read_data = {`LM32_WORD_WIDTH{1'bx}};
 
 /////////////////////////////////////////////////////
 // Internal nets and registers 
@@ -251,7 +252,7 @@ wire [9:0] dtlb_read_tag;
 reg kernel_mode_reg = `LM32_KERNEL_MODE;
 reg [`LM32_WORD_RNG] dtlb_update_vaddr_csr_reg = `LM32_WORD_WIDTH'd0;
 reg [`LM32_WORD_RNG] dtlb_update_paddr_csr_reg = `LM32_WORD_WIDTH'd0;
-reg [2:0] dtlb_state = `LM32_TLB_STATE_CHECK;
+reg [1:0] dtlb_state = `LM32_TLB_STATE_CHECK;
 reg [`LM32_WORD_RNG] dtlb_flush_csr_reg;
 reg dtlb_updating;
 reg [`LM32_DTLB_IDX_RNG] dtlb_update_set;
@@ -405,6 +406,7 @@ lm32_ram
 /////////////////////////////////////////////////////
 
 // CSR Read
+/*
 always @(*)
 begin
 	case (csr)
@@ -415,6 +417,7 @@ begin
 
 	endcase
 end
+*/
 
 // CSR Write
 always @(posedge clk_i)
@@ -422,9 +425,9 @@ begin
 	if (csr_write_enable)
 	begin
 		case (csr)
-		`LM32_CSR_DTLB_FLUSH:	 dtlb_flush_csr_reg <= csr_write_data;
-		`LM32_CSR_DTLB_VADDRESS: dtlb_update_vaddr_csr_reg <= csr_write_data;
-		`LM32_CSR_DTLB_PADDRESS: dtlb_update_paddr_csr_reg <= csr_write_data;
+		`LM32_CSR_TLB_FLUSH:	if (csr_write_data[31]) dtlb_flush_csr_reg <= csr_write_data;
+		`LM32_CSR_TLB_VADDRESS: if (csr_write_data[31]) dtlb_update_vaddr_csr_reg <= csr_write_data;
+		`LM32_CSR_TLB_PADDRESS: if (csr_write_data[31]) dtlb_update_paddr_csr_reg <= csr_write_data;
 		endcase
 	end
 end
@@ -519,9 +522,9 @@ assign dtlb_data_read_address = address_x[`LM32_DTLB_IDX_RNG];
 assign dtlb_tag_read_address = address_x[`LM32_DTLB_IDX_RNG];
 
 // tlb_update_address will receive data from a CSR register
-assign dtlb_data_write_address = (dtlb_updating == `TRUE)
+assign dtlb_data_write_address = dtlb_update_vaddr_csr_reg[`LM32_DTLB_IDX_RNG]; /* (dtlb_updating == `TRUE)
 				 ? dtlb_update_set
-				 : dtlb_update_vaddr_csr_reg[`LM32_DTLB_IDX_RNG];
+				 : dtlb_update_vaddr_csr_reg[`LM32_DTLB_IDX_RNG]; */
 
 assign dtlb_tag_write_address = (dtlb_flushing == `TRUE)
 				? dtlb_flush_set
@@ -582,7 +585,7 @@ assign check = state[1];
 assign refill = state[2];
 
 assign miss = (~(|way_match)) && (load_q_m == `TRUE) && (stall_m == `FALSE);
-assign stall_request = (check == `FALSE);
+assign stall_request = (check == `FALSE) || (dtlb_state == `LM32_TLB_STATE_FLUSH && kernel_mode_reg != `LM32_KERNEL_MODE);
                       
 /////////////////////////////////////////////////////
 // Sequential logic
@@ -682,15 +685,33 @@ begin
 
 		`LM32_TLB_STATE_CHECK:
 		begin
-			if (dtlb_miss == `TRUE)
+			dtlb_updating <= 0;
+			if ((dtlb_miss == `TRUE) && (kernel_mode_reg == `LM32_KERNEL_MODE))
 			begin
 				// FIXME : We need to generate an exception
 				dtlb_miss_addr <= address_m;
 			end
-			else if (dtlb_updating == `TRUE)
+			else if (csr_write_enable && csr_write_data[31])
 			begin
+				case (csr)
 
+				`LM32_CSR_TLB_PADDRESS:		dtlb_updating <= 1;
+				`LM32_CSR_TLB_FLUSH:
+				begin
+					dtlb_flushing <= 1;
+					dtlb_flush_set <= {addr_dtlb_index_width{1'b1}}; 
+					dtlb_state <= `LM32_TLB_STATE_FLUSH;
+				end
+
+				endcase
 			end
+		end
+
+		`LM32_TLB_STATE_FLUSH:
+		begin
+			if (dtlb_flush_set == {addr_dtlb_index_width{1'b0}})
+				dtlb_state <= `LM32_TLB_STATE_CHECK;
+			dtlb_flush_set <= dtlb_flush_set - 1'b1;
 		end
 
 		endcase
