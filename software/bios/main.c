@@ -45,7 +45,7 @@
 enum {
 	CSR_IE = 1, CSR_IM, CSR_IP, CSR_ICC, CSR_DCC, CSR_CC, CSR_CFG, CSR_EBA,
 	CSR_DC, CSR_DEBA, CSR_JTX, CSR_JRX, CSR_BP0, CSR_BP1, CSR_BP2, CSR_BP3,
-	CSR_WP0, CSR_WP1, CSR_WP2, CSR_WP3,
+	CSR_WP0, CSR_WP1, CSR_WP2, CSR_WP3, CSR_TLBCTRL, CSR_TLBVADDR, CSR_TLBPADDR
 };
 
 /* General address space functions */
@@ -232,6 +232,9 @@ static int parse_csr(const char *csr)
 	if(!strcmp(csr, "wp1"))  return CSR_WP1;
 	if(!strcmp(csr, "wp2"))  return CSR_WP2;
 	if(!strcmp(csr, "wp3"))  return CSR_WP3;
+	if(!strcmp(csr, "tlbctrl"))   return CSR_TLBCTRL;
+	if(!strcmp(csr, "tlbvaddr"))  return CSR_TLBVADDR;
+	if(!strcmp(csr, "tlbpaddr"))  return CSR_TLBPADDR;
 
 	return 0;
 }
@@ -308,6 +311,9 @@ static void wcsr(char *csr, char *value)
 		case CSR_WP1:  asm volatile ("wcsr wp1,%0"::"r"(value2)); break;
 		case CSR_WP2:  asm volatile ("wcsr wp2,%0"::"r"(value2)); break;
 		case CSR_WP3:  asm volatile ("wcsr wp3,%0"::"r"(value2)); break;
+		case CSR_TLBCTRL:   asm volatile ("wcsr tlbctrl,%0"::"r"(value2));  break;
+		case CSR_TLBVADDR:  asm volatile ("wcsr tlbvaddr,%0"::"r"(value2)); break;
+		case CSR_TLBPADDR:  asm volatile ("wcsr tlbpaddr,%0"::"r"(value2)); break;
 		default: printf("csr read only\n"); return;
 	}
 }
@@ -415,6 +421,7 @@ static void help()
 	puts("version    - display version");
 	puts("reboot     - system reset");
 	puts("reconf     - reload FPGA configuration");
+	puts("dtlbtest   - runs DTLB MMU test");
 }
 
 static char *get_token(char **str)
@@ -431,6 +438,58 @@ static char *get_token(char **str)
 	d = *str;
 	*str = c+1;
 	return d;
+}
+
+#define DTLB_CSR					(1 << 31)
+#define DTLB_CSR_CTRL_FLUSH				DTLB_CSR || (1 << 0)
+#define DTLB_CSR_CTRL_UPDATE				DTLB_CSR || (1 << 1)
+#define DTLB_CSR_CTRL_SWITCH_TO_KERNEL_MODE		DTLB_CSR || (1 << 30)
+#define DTLB_CSR_CTRL_SWITCH_TO_USER_MODE		DTLB_CSR || (1 << 29)
+
+static void dtlbtest(void)
+{
+	volatile unsigned int *addr;
+	register unsigned int value;
+	puts("Starting DTLB tests...");
+	puts("Let's try to map Virtual address 0x40002000 to Physical address 0x40003000");
+
+	// Setting virtual address in CSR TLBVADDR
+	value = 0x40002000;
+	asm volatile ("wcsr tlbvaddr,%0"::"r"(value));
+
+	// Setting physical address in CSR TLBPADDR
+	value = 0x40003000;
+	asm volatile ("wcsr tlbpaddr,%0"::"r"(value));
+
+	// Updating the DTLB line with the previously defined mapping
+	value = DTLB_CSR_CTRL_UPDATE;
+	asm volatile ("wcsr tlbctrl,%0"::"r"(value));
+
+	puts("Enable MMU DTLB");
+
+	// Enable DTLB -> going into USER MODE
+	value = DTLB_CSR_CTRL_SWITCH_TO_USER_MODE;
+	asm volatile ("wcsr tlbctrl,%0"::"r"(value));
+
+	puts("Let's write to Virtual address 0x40002000");
+
+	addr = (unsigned int *)0x40002000;
+	*addr = 42;
+
+	puts("Disable MMU DTLB");
+
+	// Disable DTLB -> going into KERNEL MODE
+	value = DTLB_CSR_CTRL_SWITCH_TO_KERNEL_MODE;
+	asm volatile ("wcsr tlbctrl,%0"::"r"(value));
+
+	puts("Let's read back from Physical address 0x40003000");
+
+	addr = (unsigned int *)0x40003000;
+	if (*addr == 42)
+		puts("SUCCESS");
+	else
+		puts("FAILURE");
+
 }
 
 static void do_command(char *c)
@@ -465,6 +524,7 @@ static void do_command(char *c)
 
 	else if(strcmp(token, "rcsr") == 0) rcsr(get_token(&c));
 	else if(strcmp(token, "wcsr") == 0) wcsr(get_token(&c), get_token(&c));
+	else if(strcmp(token, "dtlbtest") == 0) dtlbtest();
 
 	else if(strcmp(token, "") != 0)
 		printf("Command not found\n");
