@@ -76,6 +76,11 @@
 `define LM32_DC_STATE_CHECK              3'b010
 `define LM32_DC_STATE_REFILL             3'b100
 
+`define LM32_DTLB_CTRL_FLUSH		 	31'h1
+`define LM32_DTLB_CTRL_UPDATE		 	31'h2
+`define LM32_TLB_CTRL_SWITCH_TO_KERNEL_MODE	31'h40000000
+`define LM32_TLB_CTRL_SWITCH_TO_USER_MODE	31'h20000000
+
 `define LM32_TLB_STATE_CHECK		 2'b01
 `define LM32_TLB_STATE_FLUSH		 2'b10
 
@@ -253,7 +258,7 @@ reg kernel_mode_reg = `LM32_KERNEL_MODE;
 reg [`LM32_WORD_RNG] dtlb_update_vaddr_csr_reg = `LM32_WORD_WIDTH'd0;
 reg [`LM32_WORD_RNG] dtlb_update_paddr_csr_reg = `LM32_WORD_WIDTH'd0;
 reg [1:0] dtlb_state = `LM32_TLB_STATE_CHECK;
-reg [`LM32_WORD_RNG] dtlb_flush_csr_reg;
+reg [`LM32_WORD_RNG] dtlb_ctrl_csr_reg;
 reg dtlb_updating;
 reg [`LM32_DTLB_IDX_RNG] dtlb_update_set;
 reg dtlb_flushing;
@@ -425,7 +430,7 @@ begin
 	if (csr_write_enable)
 	begin
 		case (csr)
-		`LM32_CSR_TLB_FLUSH:	if (csr_write_data[31]) dtlb_flush_csr_reg <= csr_write_data;
+		`LM32_CSR_TLB_CTRL:	if (csr_write_data[31]) dtlb_ctrl_csr_reg <= csr_write_data;
 		`LM32_CSR_TLB_VADDRESS: if (csr_write_data[31]) dtlb_update_vaddr_csr_reg <= csr_write_data;
 		`LM32_CSR_TLB_PADDRESS: if (csr_write_data[31]) dtlb_update_paddr_csr_reg <= csr_write_data;
 		endcase
@@ -693,17 +698,34 @@ begin
 			end
 			else if (csr_write_enable && csr_write_data[31])
 			begin
-				case (csr)
-
-				`LM32_CSR_TLB_PADDRESS:		dtlb_updating <= 1;
-				`LM32_CSR_TLB_FLUSH:
+				// FIXME : test for kernel mode is removed for testing purposes ONLY
+				if (csr == `LM32_CSR_TLB_CTRL /*&& (kernel_mode_reg == `LM32_KERNEL_MODE)*/)
 				begin
-					dtlb_flushing <= 1;
-					dtlb_flush_set <= {addr_dtlb_index_width{1'b1}}; 
-					dtlb_state <= `LM32_TLB_STATE_FLUSH;
-				end
+					case (csr_write_data[30:0])
+					`LM32_DTLB_CTRL_FLUSH:
+					begin
+						dtlb_flushing <= 1;
+						dtlb_flush_set <= {addr_dtlb_index_width{1'b1}};
+						dtlb_state <= `LM32_TLB_STATE_FLUSH;
+					end
 
-				endcase
+					`LM32_DTLB_CTRL_UPDATE:
+					begin
+						dtlb_updating <= 1;
+					end
+					// FIXME : This is for testing purposes ONLY
+					`LM32_TLB_CTRL_SWITCH_TO_KERNEL_MODE:
+					begin
+						kernel_mode_reg <= 1;
+					end
+
+					`LM32_TLB_CTRL_SWITCH_TO_USER_MODE:
+					begin
+						kernel_mode_reg <= 0;
+					end
+
+					endcase
+				end
 			end
 		end
 
