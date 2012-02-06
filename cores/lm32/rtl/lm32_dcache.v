@@ -667,7 +667,9 @@ always @(posedge clk_i `CFG_RESET_SENSITIVITY)
 begin
 	if (rst_i == `TRUE)
 	begin
-		dtlb_state <= `LM32_TLB_STATE_CHECK;
+		dtlb_flushing <= 1;
+		dtlb_flush_set <= {addr_dtlb_index_width{1'b1}};
+		dtlb_state <= `LM32_TLB_STATE_FLUSH;
 	end
 	else
 	begin
@@ -676,6 +678,7 @@ begin
 		`LM32_TLB_STATE_CHECK:
 		begin
 			dtlb_updating <= 0;
+			dtlb_flushing <= 0;
 			if ((dtlb_miss == `TRUE) && (kernel_mode_reg == `LM32_KERNEL_MODE))
 			begin
 				// FIXME : We need to generate an exception
@@ -701,12 +704,12 @@ begin
 					// FIXME : This is for testing purposes ONLY
 					`LM32_TLB_CTRL_SWITCH_TO_KERNEL_MODE:
 					begin
-						kernel_mode_reg <= 1;
+						kernel_mode_reg <= `LM32_KERNEL_MODE;
 					end
 
 					`LM32_TLB_CTRL_SWITCH_TO_USER_MODE:
 					begin
-						kernel_mode_reg <= 0;
+						kernel_mode_reg <= `LM32_USER_MODE;
 					end
 
 					endcase
