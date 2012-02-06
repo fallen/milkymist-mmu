@@ -627,8 +627,6 @@ reg [`LM32_WORD_RNG] cc;                        // Cycle counter CSR
 `endif
 reg [`LM32_WORD_RNG] csr_read_data_x;           // Data read from CSRs
 
-wire [`LM32_WORD_RNG] dtlb_csr_read_data_x;
-
 // To/from instruction unit
 wire [`LM32_PC_RNG] pc_f;                       // PC of instruction in F stage
 wire [`LM32_PC_RNG] pc_d;                       // PC of instruction in D stage
@@ -1028,7 +1026,7 @@ lm32_load_store_unit #(
 `endif
     .load_data_w            (load_data_w),
     .stall_wb_load          (stall_wb_load),
-    .csr_read_data	    (dtlb_csr_read_data),
+    .dtlb_miss		    (dtlb_miss),
     // To Wishbone
     .d_dat_o                (D_DAT_O),
     .d_adr_o                (D_ADR_O),
@@ -2193,7 +2191,7 @@ begin
     else
     begin
         // Set flag when bus error is detected
-        if ((D_ERR_I == `TRUE) && (D_CYC_O == `TRUE))
+        if (((D_ERR_I == `TRUE) && (D_CYC_O == `TRUE)) || (dtlb_miss == `TRUE))
             data_bus_error_seen <= `TRUE;
         // Clear flag when exception is taken
         if ((exception_m == `TRUE) && (kill_m == `FALSE))

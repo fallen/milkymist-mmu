@@ -119,7 +119,7 @@ module lm32_load_store_unit (
 `endif			     
     load_data_w,
     stall_wb_load,
-    csr_read_data,
+    dtlb_miss,
     // To Wishbone
     d_dat_o,
     d_adr_o,
@@ -187,6 +187,8 @@ input dflush;                                           // Flush the data cache
 input [`LM32_WORD_RNG] irom_data_m;                     // Data from Instruction-ROM
 `endif
 
+input dtlb_miss;
+
 input [`LM32_WORD_RNG] d_dat_i;                         // Data Wishbone interface read data
 input d_ack_i;                                          // Data Wishbone interface acknowledgement
 input d_err_i;                                          // Data Wishbone interface error
@@ -222,9 +224,6 @@ output [`LM32_WORD_RNG] load_data_w;                    // Result of a load inst
 reg    [`LM32_WORD_RNG] load_data_w;
 output stall_wb_load;                                   // Request to stall pipeline due to a load from the Wishbone interface
 reg    stall_wb_load;
-
-output [`LM32_WORD_RNG] csr_read_data;			// Data read from CSR
-wire    [`LM32_WORD_RNG] csr_read_data;
 
 output [`LM32_WORD_RNG] d_dat_o;                        // Data Wishbone interface write data
 reg    [`LM32_WORD_RNG] d_dat_o;
@@ -418,7 +417,7 @@ lm32_dcache #(
     .refill_address         (dcache_refill_address),
     .refilling              (dcache_refilling),
     .load_data              (dcache_data_m),
-    .csr_read_data	    (csr_read_data)
+    .dtlb_miss		    (dtlb_miss)
     );
 `endif
 

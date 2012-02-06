@@ -115,7 +115,7 @@ module lm32_dcache (
     refilling,
     load_data,
    // To pipeline
-    csr_read_data
+    dtlb_miss
     );
 
 /////////////////////////////////////////////////////
@@ -206,8 +206,7 @@ reg    refilling;
 output [`LM32_WORD_RNG] load_data;                      // Data read from cache
 wire   [`LM32_WORD_RNG] load_data;
 
-output [`LM32_WORD_RNG] csr_read_data;			// Data read from CSR
-reg    [`LM32_WORD_RNG] csr_read_data = {`LM32_WORD_WIDTH{1'bx}};
+output dtlb_miss;
 
 /////////////////////////////////////////////////////
 // Internal nets and registers 
@@ -409,20 +408,6 @@ lm32_ram
 /////////////////////////////////////////////////////
 // Combinational logic
 /////////////////////////////////////////////////////
-
-// CSR Read
-/*
-always @(*)
-begin
-	case (csr)
-
-	`LM32_CSR_DTLB_FLUSH:	 csr_read_data = dtlb_flush_csr_reg;
-	`LM32_CSR_DTLB_VADDRESS: csr_read_data = dtlb_update_vaddr_csr_reg;
-	`LM32_CSR_DTLB_PADDRESS: csr_read_data = dtlb_update_paddr_csr_reg;
-
-	endcase
-end
-*/
 
 // CSR Write
 always @(posedge clk_i)
