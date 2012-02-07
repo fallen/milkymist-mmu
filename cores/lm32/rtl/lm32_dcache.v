@@ -522,14 +522,15 @@ assign dtlb_tag_write_address = (dtlb_flushing == `TRUE)
 				: dtlb_update_vaddr_csr_reg[`LM32_DTLB_IDX_RNG];
 
 assign dtlb_data_read_port_enable = `TRUE;
+assign dtlb_tag_read_port_enable = `TRUE;
 assign dtlb_write_port_enable = dtlb_updating || dtlb_flushing;
 assign dtlb_write_tag = (dtlb_flushing == `TRUE)
 			? `LM32_DTLB_INVALID_TAG
 			: dtlb_update_vaddr_csr_reg[31:22]; // 10 top VA bits
 
-assign physical_address_x = (kernel_mode_reg == `LM32_KERNEL_MODE)
-			    ? address_x
-			    : { dtlb_read_tag, address_x[`LM32_PAGE_OFFSET_RNG] };
+assign physical_address = (kernel_mode_reg == `LM32_KERNEL_MODE)
+			    ? address_m
+			    : { dtlb_read_data , address_m[`LM32_PAGE_OFFSET_RNG] };
 
 assign dtlb_write_data = (dtlb_flushing == `TRUE)
 			 ? `LM32_DTLB_INVALID_ADDRESS
@@ -639,7 +640,7 @@ begin
             if (miss == `TRUE)
             begin
                 refill_request <= `TRUE;
-                refill_address <= address_m;
+                refill_address <= physical_address;
                 state <= `LM32_DC_STATE_REFILL;
             end
             else if (dflush == `TRUE)
