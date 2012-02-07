@@ -240,18 +240,19 @@ reg [`LM32_DC_ADDR_OFFSET_RNG] refill_offset;           // Which word in cache l
 wire last_refill;                                       // Indicates when on last cycle of cache refill
 reg [`LM32_DC_TMEM_ADDR_RNG] flush_set;                 // Which set is currently being flushed
 
-wire [`LM32_DTLB_IDX_RNG] dtlb_data_read_address;
-wire [`LM32_DTLB_IDX_RNG] dtlb_data_write_address;
+wire [addr_dtlb_index_width-1:0] dtlb_data_read_address;
+wire [addr_dtlb_index_width-1:0] dtlb_data_write_address;
 wire dtlb_data_read_port_enable;
 wire dtlb_write_port_enable;
-wire [`LM32_DTLB_ADDRESS_PFN_RNG] dtlb_write_data;
-wire [`LM32_DTLB_ADDRESS_PFN_RNG] dtlb_read_data;
+wire [vpfn_width-1:0] dtlb_write_data;
+wire [vpfn_width-1:0] dtlb_read_data;
 
-wire [`LM32_DTLB_IDX_RNG] dtlb_tag_read_address;
+wire [addr_dtlb_index_width-1:0] dtlb_tag_read_address;
 wire dtlb_tag_read_port_enable;
-wire [`LM32_DTLB_IDX_RNG] dtlb_tag_write_address;
+wire [addr_dtlb_index_width-1:0] dtlb_tag_write_address;
 wire [9:0] dtlb_write_tag;
 wire [9:0] dtlb_read_tag;
+wire [`LM32_WORD_RNG] physical_address;
 
 reg kernel_mode_reg = `LM32_KERNEL_MODE;
 reg [`LM32_WORD_RNG] dtlb_update_vaddr_csr_reg = `LM32_WORD_WIDTH'd0;
@@ -259,9 +260,9 @@ reg [`LM32_WORD_RNG] dtlb_update_paddr_csr_reg = `LM32_WORD_WIDTH'd0;
 reg [1:0] dtlb_state = `LM32_TLB_STATE_CHECK;
 reg [`LM32_WORD_RNG] dtlb_ctrl_csr_reg;
 reg dtlb_updating;
-reg [`LM32_DTLB_IDX_RNG] dtlb_update_set;
+reg [addr_dtlb_index_width-1:0] dtlb_update_set;
 reg dtlb_flushing;
-reg [`LM32_DTLB_IDX_RNG] dtlb_flush_set;
+reg [addr_dtlb_index_width-1:0] dtlb_flush_set;
 reg dtlb_miss;
 reg dtlb_miss_addr;
 
@@ -415,9 +416,9 @@ begin
 	if (csr_write_enable)
 	begin
 		case (csr)
-		`LM32_CSR_TLB_CTRL:	if (csr_write_data[31]) dtlb_ctrl_csr_reg <= csr_write_data;
-		`LM32_CSR_TLB_VADDRESS: if (csr_write_data[31]) dtlb_update_vaddr_csr_reg <= csr_write_data;
-		`LM32_CSR_TLB_PADDRESS: if (csr_write_data[31]) dtlb_update_paddr_csr_reg <= csr_write_data;
+		`LM32_CSR_TLB_CTRL:	if (csr_write_data[31]) dtlb_ctrl_csr_reg[30:0] <= csr_write_data[30:0];
+		`LM32_CSR_TLB_VADDRESS: if (csr_write_data[31]) dtlb_update_vaddr_csr_reg[30:0] <= csr_write_data[30:0];
+		`LM32_CSR_TLB_PADDRESS: if (csr_write_data[31]) dtlb_update_paddr_csr_reg[30:0] <= csr_write_data[30:0];
 		endcase
 	end
 end
@@ -433,7 +434,7 @@ assign way_match[i] = (kernel_mode_reg == `LM32_KERNEL_MODE) ?
 		      ({way_tag[i], way_valid[i]} == {address_m[`LM32_DC_ADDR_TAG_RNG], `TRUE})
 		      : (dtlb_read_tag == `LM32_DTLB_TAG_INVALID) ?
 		      `FALSE
-		      : ({way_tag[i], way_valid[i]} == {dtlb_read_data, `TRUE});
+		      : ({way_tag[i], way_valid[i]} == {dtlb_read_data});
 
 /*always @(*)
 begin
