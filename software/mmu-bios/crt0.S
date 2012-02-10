@@ -121,45 +121,49 @@ _crt0:
 	nop
 	nop
 	mvi r3, 1
-	mvi r2, 0x1ff
+	mvi r2, 0xdf
 /* give time for DTLB to flush itself */
 loop:
 	nop
 	sub r2, r2, r3
-	be r2, r0, loop
+	bne r2, r0, loop
 	nop
 	nop
 	nop
-/* TLBVADDR = 0x80001000 */
-	mvhi r1, 0x8000
-	ori r1, r1, 0x1000
-	wcsr TLBVADDR, r1
-/* TLBPADDR = 0x80000000 */
+/* TLBVADDR = 0x00000000 */
 	xor r1, r1, r1
-	mvhi r1, 0x8000
+	ori r1, r1, 0x0001
+	wcsr TLBVADDR, r1
+/* TLBPADDR = 0x00001000 */
+	xor r1, r1, r1
+	ori r1, r1, 0x1001
 	wcsr TLBPADDR, r1
 /* TLBCTRL = 0x80000010 which is cmd DTLB_UPDATE */
 	xor r1, r1, r1
-	mvhi r1, 0x8000
-	ori r1, r1, 2
+	ori r1, r1, 5
 	wcsr TLBCTRL, r1
-/* TLBCTRL = 0xA0000000 which is cmd DTLB_SWITCH_TO_USER_MODE */
+/* TLBCTRL = 0x00000011 which is cmd DTLB_SWITCH_TO_USER_MODE */
 	xor r1, r1, r1
-	mvhi r1, 0xA000
+	ori r1, r1, 0x0011
 	wcsr TLBCTRL, r1
 /* Now DTLB should be active 
- * All accesses to page 1 should be remapped to page 0
+ * All accesses to virtual page 0 should be remapped to physical page 1
  */
 	nop
 	nop
 	nop
 	nop
 	nop
-/* This should read at physical address 0x00000000 */
-	mvi r1, 0x1040
+/* This should read at physical address 0x00001040 */
+	xor r1, r1, r1
+	ori r1, r1, 0x0040
 	lw r2, (r1+0)
 	nop
 	nop
+/* Let's do it again ! */
+	xor r1, r1, r1
+	ori r1, r1, 0x0040
+	lw r2, (r1+0)
 	nop
 	nop
 	nop
