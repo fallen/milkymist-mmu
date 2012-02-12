@@ -161,7 +161,14 @@ loop:
 /* Let's do it again ! */
 	lw r3, (r0+0x0040)
 	nop
+/* Now let's write a word to vaddr 0x0040 */
+	xor r1, r1, r1
+	mvhi r1, 0x4444
+	ori r1, r1, 0x4343
+	sw (r0+0x0040), r1
 	nop
+/* Let's read it back ! */
+	lw r2, (r0+0x0040)
 	nop
 	nop
 	nop
