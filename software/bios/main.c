@@ -449,46 +449,71 @@ static char *get_token(char **str)
 static void dtlbtest(void)
 {
 	volatile unsigned int *addr;
-	register unsigned int value;
 	puts("Starting DTLB tests...");
-	puts("Let's try to map Virtual address 0x40002000 to Physical address 0x40003000");
+	puts("Let's try to map Virtual address 0x44001000 to Physical address 0x44000000");
 
 	// Setting virtual address in CSR TLBVADDR
-	value = 0x40002000;
-	asm volatile ("wcsr tlbvaddr,%0"::"r"(value));
+	// r11 LSb is 1 because we deal with DTLB
+	asm volatile	("xor r11, r11, r11\n\t"
+			 "mvhi r11, 0x4400\n\t"
+			 "ori r11, r11, 0x1001\n\t"
+ 			 "wcsr tlbvaddr, r11":::"r11");
 
 	// Setting physical address in CSR TLBPADDR
-	value = 0x40003000;
-	asm volatile ("wcsr tlbpaddr,%0"::"r"(value));
+	// r11 LSb is 1 because we deal with DTLB
+	asm volatile	("xor r11, r11, r11\n\t"
+			 "mvhi r11, 0x4400\n\t"
+			 "ori r11, r11, 1\n\t"
+			 "wcsr tlbpaddr, r11":::"r11");
 
 	// Updating the DTLB line with the previously defined mapping
-	value = DTLB_CSR_CTRL_UPDATE;
-	asm volatile ("wcsr tlbctrl,%0"::"r"(value));
+	// Update is (2 << 2) + 1 because we deal with DTLB
+	asm volatile	("xor r11, r11, r11\n\t"
+			 "ori r11, r11, 5\n\t"
+			 "wcsr tlbctrl, r11":::"r11");
 
 	puts("Enable MMU DTLB");
 
+//	addr = (unsigned int *)0x44001000;
+
 	// Enable DTLB -> going into USER MODE
-	value = DTLB_CSR_CTRL_SWITCH_TO_USER_MODE;
-	asm volatile ("wcsr tlbctrl,%0"::"r"(value));
+	asm volatile	("xor r11, r11, r11\n\t"
+			 "ori r11, r11, 0x11\n\t"
+			 "wcsr tlbctrl, r11":::"r11");
 
-	puts("Let's write to Virtual address 0x40002000");
+	// Let's write to Virtual address 0x44001000
 
-	addr = (unsigned int *)0x40002000;
-	*addr = 42;
+//	*addr = 0x42;
 
-	puts("Disable MMU DTLB");
+	asm volatile	("xor r11, r11, r11\n\t"
+			 "mvhi r11, 0x4400\n\t"
+			 "ori r11, r11, 0x1000\n\t"
+			 "xor r12, r12, r12\n\t"
+			 "ori r12, r12, 0x42\n\t"
+			 "sw (r11+0), r12":::"r11", "r12");
 
-	// Disable DTLB -> going into KERNEL MODE
-	value = DTLB_CSR_CTRL_SWITCH_TO_KERNEL_MODE;
-	asm volatile ("wcsr tlbctrl,%0"::"r"(value));
+	// Disable DTLB -> going back into KERNEL MODE
+	asm volatile	("xor r11, r11, r11\n\t"
+			 "ori r11, r11, 9\n\t"
+			 "wcsr tlbctrl, r11":::"r11");
 
-	puts("Let's read back from Physical address 0x40003000");
+	asm volatile	("xor r0, r0, r0\n\t"
+			 "xor r0, r0, r0\n\t"
+			 "xor r0, r0, r0\n\t"
+			 "xor r0, r0, r0\n\t"
+			 "xor r0, r0, r0");
 
-	addr = (unsigned int *)0x40003000;
-	if (*addr == 42)
+	puts("We have disabled MMU DTLB");
+
+	puts("Let's read back from Physical address 0x44000000");
+
+	addr = (unsigned int *)0x44000000;
+	if (*addr == 0x42)
 		puts("SUCCESS");
 	else
 		puts("FAILURE");
+
+	printf("0x44000000 == %d\n", *addr);
 
 }
 

@@ -115,7 +115,9 @@ module lm32_dcache (
     refilling,
     load_data,
    // To pipeline
-    dtlb_miss
+    dtlb_miss,
+    kernel_mode,
+    pa
     );
 
 /////////////////////////////////////////////////////
@@ -206,6 +208,9 @@ reg    refilling;
 output [`LM32_WORD_RNG] load_data;                      // Data read from cache
 wire   [`LM32_WORD_RNG] load_data;
 
+output [`LM32_WORD_RNG] kernel_mode;
+wire [`LM32_WORD_RNG] kernel_mode;
+
 output dtlb_miss;
 
 /////////////////////////////////////////////////////
@@ -254,6 +259,11 @@ wire [9:0] dtlb_write_tag;
 wire [9:0] dtlb_read_tag;
 wire [`LM32_WORD_RNG] physical_address;
 
+wire [`LM32_WORD_RNG] pa;
+output [`LM32_WORD_RNG] pa;
+
+assign pa = physical_address;
+
 reg kernel_mode_reg = `LM32_KERNEL_MODE;
 reg [`LM32_WORD_RNG] dtlb_update_vaddr_csr_reg = `LM32_WORD_WIDTH'd0;
 reg [`LM32_WORD_RNG] dtlb_update_paddr_csr_reg = `LM32_WORD_WIDTH'd0;
@@ -267,6 +277,8 @@ reg dtlb_miss;
 reg dtlb_miss_addr;
 
 genvar i, j;
+
+assign kernel_mode = kernel_mode_reg;
 
 /////////////////////////////////////////////////////
 // Functions

@@ -62,6 +62,9 @@
 
 `include "lm32_include.v"
 
+`define LM32_KERNEL_MODE		 1
+`define LM32_USER_MODE			 0
+
 /////////////////////////////////////////////////////
 // Module interface
 /////////////////////////////////////////////////////
@@ -289,6 +292,9 @@ reg wb_select_m;
 reg [`LM32_WORD_RNG] wb_data_m;                         // Data read from Wishbone
 reg wb_load_complete;                                   // Indicates when a Wishbone load is complete
 
+wire [`LM32_WORD_RNG] physical_address;
+wire [`LM32_WORD_RNG] kernel_mode;
+
 /////////////////////////////////////////////////////
 // Functions
 /////////////////////////////////////////////////////
@@ -417,7 +423,9 @@ lm32_dcache #(
     .refill_address         (dcache_refill_address),
     .refilling              (dcache_refilling),
     .load_data              (dcache_data_m),
-    .dtlb_miss		    (dtlb_miss)
+    .dtlb_miss		    (dtlb_miss),
+    .kernel_mode	    (kernel_mode),
+    .pa			    (physical_address)
     );
 `endif
 
@@ -725,7 +733,7 @@ begin
             begin
                 // Data cache is write through, so all stores go to memory
                 d_dat_o <= store_data_m;
-                d_adr_o <= load_store_address_m;
+                d_adr_o <= (kernel_mode == `LM32_KERNEL_MODE) ? load_store_address_m : physical_address;
                 d_cyc_o <= `TRUE;
                 d_sel_o <= byte_enable_m;
                 d_stb_o <= `TRUE;
@@ -740,7 +748,7 @@ begin
             begin
                 // Read requested address
                 stall_wb_load <= `FALSE;
-                d_adr_o <= load_store_address_m;
+                d_adr_o <= (kernel_mode == `LM32_KERNEL_MODE) ? load_store_address_m : physical_address;
                 d_cyc_o <= `TRUE;
                 d_sel_o <= byte_enable_m;
                 d_stb_o <= `TRUE;
