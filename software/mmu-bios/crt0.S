@@ -22,10 +22,13 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-
+		
+	
 /* Exception handlers - Must be 32 bytes long. */
 .section    .text, "ax", @progbits
 .global     _start
+.include    "./csr-opcodes.h"
+	
 _start:
 _reset_handler:
 	xor	r0, r0, r0
@@ -133,19 +136,19 @@ loop:
 /* TLBVADDR = 0x00000000 */
 	xor r1, r1, r1
 	ori r1, r1, 0x0001
-	wcsr TLBVADDR, r1
+	WCSR_EXT CSR_TLBVADDR, 1
 /* TLBPADDR = 0x00001000 */
 	xor r1, r1, r1
 	ori r1, r1, 0x1001
-	wcsr TLBPADDR, r1
+	WCSR_EXT CSR_TLBPADDR, 1
 /* TLBCTRL = 0x80000010 which is cmd DTLB_UPDATE */
 	xor r1, r1, r1
 	ori r1, r1, 5
-	wcsr TLBCTRL, r1
+	WCSR_EXT CSR_TLBCTRL, 1
 /* TLBCTRL = 0x00000011 which is cmd DTLB_SWITCH_TO_USER_MODE */
 	xor r1, r1, r1
 	ori r1, r1, 0x0011
-	wcsr TLBCTRL, r1
+	WCSR_EXT CSR_TLBCTRL, 1
 /* Now DTLB should be active 
  * All accesses to virtual page 0 should be remapped to physical page 1
  */
