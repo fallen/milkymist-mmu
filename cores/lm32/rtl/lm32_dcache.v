@@ -78,8 +78,8 @@
 
 `define LM32_DTLB_CTRL_FLUSH		 	31'h1
 `define LM32_DTLB_CTRL_UPDATE		 	31'h2
-`define LM32_TLB_CTRL_SWITCH_TO_KERNEL_MODE	31'h40000000
-`define LM32_TLB_CTRL_SWITCH_TO_USER_MODE	31'h20000000
+`define LM32_TLB_CTRL_SWITCH_TO_KERNEL_MODE	31'h4
+`define LM32_TLB_CTRL_SWITCH_TO_USER_MODE	31'h8
 
 `define LM32_TLB_STATE_CHECK		 2'b01
 `define LM32_TLB_STATE_FLUSH		 2'b10
@@ -132,7 +132,7 @@ parameter dtlb_sets = 1024;				// Number of lines of DTLB
 parameter page_size = 4096;				// System page size
 
 `define LM32_DTLB_IDX_RNG		addr_dtlb_index_msb:addr_dtlb_index_lsb
-`define LM32_DTLB_INVALID_TAG		{ 10{1'b1} }
+`define LM32_DTLB_INVALID_TAG		{ 9'b1, `FALSE}
 `define LM32_DTLB_ADDRESS_PFN_RNG	addr_pfn_msb:addr_pfn_lsb
 `define LM32_PAGE_OFFSET_RNG		addr_page_offset_msb:addr_page_offset_lsb
 `define LM32_DTLB_INVALID_ADDRESS	{ vpfn_width{1'b1} }
@@ -149,7 +149,7 @@ localparam addr_dtlb_tag_width = vpfn_width - addr_dtlb_index_width;
 localparam addr_dtlb_tag_lsb = addr_dtlb_index_msb + 1;
 localparam addr_dtlb_tag_msb = addr_dtlb_tag_lsb + addr_dtlb_tag_width - 1;
 
-`define LM32_DTLB_TAG_INVALID		{ addr_dtlb_tag_width{ 1'b1 } }
+`define LM32_DTLB_TAG_INVALID		{ addr_dtlb_tag_width{ 1'b0 } }
 
 localparam addr_offset_width = clogb2(bytes_per_line)-1-2;
 localparam addr_set_width = clogb2(sets)-1;
@@ -258,7 +258,7 @@ reg kernel_mode_reg = `LM32_KERNEL_MODE;
 reg [`LM32_WORD_RNG] dtlb_update_vaddr_csr_reg = `LM32_WORD_WIDTH'd0;
 reg [`LM32_WORD_RNG] dtlb_update_paddr_csr_reg = `LM32_WORD_WIDTH'd0;
 reg [1:0] dtlb_state = `LM32_TLB_STATE_CHECK;
-reg [`LM32_WORD_RNG] dtlb_ctrl_csr_reg;
+reg [`LM32_WORD_RNG] dtlb_ctrl_csr_reg = `LM32_WORD_WIDTH'd0;
 reg dtlb_updating;
 reg [addr_dtlb_index_width-1:0] dtlb_update_set;
 reg dtlb_flushing;
@@ -416,11 +416,14 @@ begin
 	if (csr_write_enable)
 	begin
 		case (csr)
-		`LM32_CSR_TLB_CTRL:	if (csr_write_data[31]) dtlb_ctrl_csr_reg[30:0] <= csr_write_data[30:0];
-		`LM32_CSR_TLB_VADDRESS: if (csr_write_data[31]) dtlb_update_vaddr_csr_reg[30:0] <= csr_write_data[30:0];
-		`LM32_CSR_TLB_PADDRESS: if (csr_write_data[31]) dtlb_update_paddr_csr_reg[30:0] <= csr_write_data[30:0];
+		`LM32_CSR_TLB_CTRL:	if (csr_write_data[0]) dtlb_ctrl_csr_reg[31:1] <= csr_write_data[31:1];
+		`LM32_CSR_TLB_VADDRESS: if (csr_write_data[0]) dtlb_update_vaddr_csr_reg[31:1] <= csr_write_data[31:1];
+		`LM32_CSR_TLB_PADDRESS: if (csr_write_data[0]) dtlb_update_paddr_csr_reg[31:1] <= csr_write_data[31:1];
 		endcase
 	end
+	dtlb_ctrl_csr_reg[31] <= 0;
+	dtlb_update_vaddr_csr_reg[31] <= 0;
+	dtlb_update_paddr_csr_reg[31] <= 0;
 end
 
 // Compute which ways in the cache match the address being read
@@ -434,7 +437,7 @@ assign way_match[i] = (kernel_mode_reg == `LM32_KERNEL_MODE) ?
 		      ({way_tag[i], way_valid[i]} == {address_m[`LM32_DC_ADDR_TAG_RNG], `TRUE})
 		      : (dtlb_read_tag == `LM32_DTLB_TAG_INVALID) ?
 		      `FALSE
-		      : ({way_tag[i], way_valid[i]} == {dtlb_read_data});
+		      : ({way_tag[i], way_valid[i]} == {dtlb_read_data, `TRUE});
 
 /*always @(*)
 begin
@@ -526,7 +529,7 @@ assign dtlb_tag_read_port_enable = `TRUE;
 assign dtlb_write_port_enable = dtlb_updating || dtlb_flushing;
 assign dtlb_write_tag = (dtlb_flushing == `TRUE)
 			? `LM32_DTLB_INVALID_TAG
-			: dtlb_update_vaddr_csr_reg[31:22]; // 10 top VA bits
+			: {dtlb_update_vaddr_csr_reg[30:22], `TRUE}; // 10-1 top VA bits
 
 assign physical_address = (kernel_mode_reg == `LM32_KERNEL_MODE)
 			    ? address_m
@@ -617,7 +620,7 @@ begin
         state <= `LM32_DC_STATE_FLUSH;
         flush_set <= {`LM32_DC_TMEM_ADDR_WIDTH{1'b1}};
         refill_request <= `FALSE;
-        refill_address <= {`LM32_WORD_WIDTH{1'bx}};
+        refill_address <= {`LM32_WORD_WIDTH{1'b0}};
         restart_request <= `FALSE;
     end
     else 
@@ -686,12 +689,12 @@ begin
 				// FIXME : We need to generate an exception
 				dtlb_miss_addr <= address_m;
 			end
-			else if (csr_write_enable && csr_write_data[31])
+			else if (csr_write_enable && csr_write_data[0])
 			begin
 				// FIXME : test for kernel mode is removed for testing purposes ONLY
 				if (csr == `LM32_CSR_TLB_CTRL /*&& (kernel_mode_reg == `LM32_KERNEL_MODE)*/)
 				begin
-					case (csr_write_data[30:0])
+					case (csr_write_data[31:1])
 					`LM32_DTLB_CTRL_FLUSH:
 					begin
 						dtlb_flushing <= 1;
