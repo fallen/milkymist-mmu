@@ -155,15 +155,11 @@ loop:
 	nop
 	nop
 /* This should read at physical address 0x00001040 */
-	xor r1, r1, r1
-	ori r1, r1, 0x0040
-	lw r2, (r1+0)
+	lw r2, (r0+0x0040)
 	nop
 	nop
 /* Let's do it again ! */
-	xor r1, r1, r1
-	ori r1, r1, 0x0040
-	lw r2, (r1+0)
+	lw r3, (r0+0x0040)
 	nop
 	nop
 	nop
