@@ -24,9 +24,14 @@ reg [data_width-1:0] ram[addr_depth-1:0];
 reg [addr_width-1:0] raddr_r;
 assign rdata_o = ram[raddr_r];
 
+integer i;
+
 initial
 begin
-	ram[0] = {data_width{ 1'b0 }};
+	for (i = addr_depth-1 ; i >= 0 ; i = i-1)
+	begin
+		ram[i] <= {data_width{1'b0}};
+	end
 end
 
 always @ (posedge clk_i)
