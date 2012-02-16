@@ -133,22 +133,35 @@ loop:
 	nop
 	nop
 	nop
-/* TLBVADDR = 0x00000000 */
-	xor r1, r1, r1
-	ori r1, r1, 0x0001
-	WCSR_EXT CSR_TLBVADDR, 1
-/* TLBPADDR = 0x00001000 */
-	xor r1, r1, r1
-	ori r1, r1, 0x1001
-	WCSR_EXT CSR_TLBPADDR, 1
+	xor r11, r11, r11
+	nop
+	ori r11, r11, 0x1000
+	xor r12, r12, r12
+	nop
+	ori r12, r12, 0x42
+	nop
+	sw (r11+0), r12
+	nop
+	nop
+	nop
+/* TLBVADDR = 0x00001000 */
+	xor r11, r11, r11
+	mvhi r11, 0x0000
+	ori r11, r11, 0x2001
+	WCSR_EXT CSR_TLBVADDR, 11
+/* TLBPADDR = 0x00000000 */
+	xor r11, r11, r11
+	mvhi r11, 0x0000
+	ori r11, r11, 0x1001
+	WCSR_EXT CSR_TLBPADDR, 11
 /* TLBCTRL = 0x80000010 which is cmd DTLB_UPDATE */
-	xor r1, r1, r1
-	ori r1, r1, 5
-	WCSR_EXT CSR_TLBCTRL, 1
+	xor r11, r11, r11
+	ori r11, r11, 5
+	WCSR_EXT CSR_TLBCTRL, 11
 /* TLBCTRL = 0x00000011 which is cmd DTLB_SWITCH_TO_USER_MODE */
-	xor r1, r1, r1
-	ori r1, r1, 0x0011
-	WCSR_EXT CSR_TLBCTRL, 1
+	xor r11, r11, r11
+	ori r11, r11, 0x11
+	WCSR_EXT CSR_TLBCTRL, 11
 /* Now DTLB should be active 
  * All accesses to virtual page 0 should be remapped to physical page 1
  */
@@ -157,21 +170,19 @@ loop:
 	nop
 	nop
 	nop
-/* This should read at physical address 0x00001040 */
-	lw r2, (r0+0x0040)
 	nop
-	nop
-/* Let's do it again ! */
-	lw r3, (r0+0x0040)
-	nop
-/* Now let's write a word to vaddr 0x0040 */
-	xor r1, r1, r1
-	mvhi r1, 0x4444
-	ori r1, r1, 0x4343
-	sw (r0+0x0040), r1
-	nop
-/* Let's read it back ! */
-	lw r2, (r0+0x0040)
+// *(unsigned int *)0x00001000 = 0x42;
+	xor r11, r11, r11
+	mvhi r11, 0x0000
+	ori r11, r11, 0x2000
+	xor r12, r12, r12
+	ori r12, r12, 0x42
+	sw (r11+0), r12
+
+
+	xor r11, r11, r11
+	ori r11, r11, 9
+	WCSR_EXT CSR_TLBCTRL, 11
 	nop
 	nop
 	nop
@@ -179,6 +190,12 @@ loop:
 	nop
 	nop
 	nop
+	xor r11, r11, r11
+	ori r11, r11, 0x1000
+	lw r12, (r11+0)
+	xor r13, r13, r13
+	ori r13, r13, 0x42
+	bne r12, r13, _crt0
 	nop
 	nop
 	nop
