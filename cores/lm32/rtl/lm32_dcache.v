@@ -76,10 +76,10 @@
 `define LM32_DC_STATE_CHECK              3'b010
 `define LM32_DC_STATE_REFILL             3'b100
 
-`define LM32_DTLB_CTRL_FLUSH		 	31'h1
-`define LM32_DTLB_CTRL_UPDATE		 	31'h2
-`define LM32_TLB_CTRL_SWITCH_TO_KERNEL_MODE	31'h4
-`define LM32_TLB_CTRL_SWITCH_TO_USER_MODE	31'h8
+`define LM32_DTLB_CTRL_FLUSH		 	4'h1
+`define LM32_DTLB_CTRL_UPDATE		 	4'h2
+`define LM32_TLB_CTRL_SWITCH_TO_KERNEL_MODE	4'h4
+`define LM32_TLB_CTRL_SWITCH_TO_USER_MODE	4'h8
 
 `define LM32_TLB_STATE_CHECK		 2'b01
 `define LM32_TLB_STATE_FLUSH		 2'b10
@@ -706,7 +706,7 @@ begin
 				// FIXME : test for kernel mode is removed for testing purposes ONLY
 				if (csr == `LM32_CSR_TLB_CTRL /*&& (kernel_mode_reg == `LM32_KERNEL_MODE)*/)
 				begin
-					case (csr_write_data[31:1])
+					case (csr_write_data[4:1])
 					`LM32_DTLB_CTRL_FLUSH:
 					begin
 						dtlb_flushing <= 1;
