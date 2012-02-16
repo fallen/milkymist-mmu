@@ -2191,7 +2191,7 @@ begin
     else
     begin
         // Set flag when bus error is detected
-        if (((D_ERR_I == `TRUE) && (D_CYC_O == `TRUE)) || (dtlb_miss == `TRUE))
+        if (((D_ERR_I == `TRUE) && (D_CYC_O == `TRUE)))
             data_bus_error_seen <= `TRUE;
         // Clear flag when exception is taken
         if ((exception_m == `TRUE) && (kill_m == `FALSE))
