@@ -134,7 +134,7 @@ parameter dtlb_sets = 1024;				// Number of lines of DTLB
 parameter page_size = 4096;				// System page size
 
 `define LM32_DTLB_IDX_RNG		addr_dtlb_index_msb:addr_dtlb_index_lsb
-`define LM32_DTLB_INVALID_TAG		{ 9'b1, `FALSE}
+`define LM32_DTLB_INVALID_TAG		{ {9{1'b1}}, `FALSE}
 `define LM32_DTLB_ADDRESS_PFN_RNG	addr_pfn_msb:addr_pfn_lsb
 `define LM32_PAGE_OFFSET_RNG		addr_page_offset_msb:addr_page_offset_lsb
 `define LM32_DTLB_INVALID_ADDRESS	{ vpfn_width{1'b1} }
