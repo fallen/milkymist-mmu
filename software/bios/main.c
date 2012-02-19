@@ -454,15 +454,13 @@ static void dtlbtest(void)
 
 	// Setting virtual address in CSR TLBVADDR
 	// r11 LSb is 1 because we deal with DTLB
-	asm volatile	("xor r11, r11, r11\n\t"
-			 "mvhi r11, 0x4400\n\t"
+	asm volatile	("mvhi r11, 0x4400\n\t"
 			 "ori r11, r11, 0x1001\n\t"
  			 "wcsr tlbvaddr, r11":::"r11");
 
 	// Setting physical address in CSR TLBPADDR
 	// r11 LSb is 1 because we deal with DTLB
-	asm volatile	("xor r11, r11, r11\n\t"
-			 "mvhi r11, 0x4400\n\t"
+	asm volatile	("mvhi r11, 0x4400\n\t"
 			 "ori r11, r11, 1\n\t"
 			 "wcsr tlbpaddr, r11":::"r11");
 
@@ -483,8 +481,7 @@ static void dtlbtest(void)
 	// addr = (unsigned int *)0x44001000;
 	// *addr = 0x42;
 
-	asm volatile	("xor r11, r11, r11\n\t"
-			 "mvhi r11, 0x4400\n\t"
+	asm volatile	("mvhi r11, 0x4400\n\t"
 			 "ori r11, r11, 0x1000\n\t"
 			 "xor r12, r12, r12\n\t"
 			 "ori r12, r12, 0x42\n\t"
