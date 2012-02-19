@@ -245,14 +245,14 @@ reg [`LM32_DC_ADDR_OFFSET_RNG] refill_offset;           // Which word in cache l
 wire last_refill;                                       // Indicates when on last cycle of cache refill
 reg [`LM32_DC_TMEM_ADDR_RNG] flush_set;                 // Which set is currently being flushed
 
-wire [addr_dtlb_index_width-1:0] dtlb_data_read_address;
+reg [addr_dtlb_index_width-1:0] dtlb_data_read_address;
 wire [addr_dtlb_index_width-1:0] dtlb_data_write_address;
 wire dtlb_data_read_port_enable;
 wire dtlb_write_port_enable;
 wire [vpfn_width-1:0] dtlb_write_data;
 wire [vpfn_width-1:0] dtlb_read_data;
 
-wire [addr_dtlb_index_width-1:0] dtlb_tag_read_address;
+reg [addr_dtlb_index_width-1:0] dtlb_tag_read_address;
 wire dtlb_tag_read_port_enable;
 wire [addr_dtlb_index_width-1:0] dtlb_tag_write_address;
 wire [9:0] dtlb_write_tag;
@@ -524,8 +524,15 @@ assign tmem_write_address = (flushing == `TRUE)
 assign tmem_read_address = address_x[`LM32_DC_ADDR_SET_RNG];
 
 // Compute address to use to index into the DTLB data memory
-assign dtlb_data_read_address = address_x[`LM32_DTLB_IDX_RNG];
-assign dtlb_tag_read_address = address_x[`LM32_DTLB_IDX_RNG];
+
+always @(posedge clk_i)
+begin
+	if (~store_q_m && ~load_q_m)
+	begin
+		dtlb_data_read_address <= address_x[`LM32_DTLB_IDX_RNG];
+		dtlb_tag_read_address <= address_x[`LM32_DTLB_IDX_RNG];
+	end
+end
 
 // tlb_update_address will receive data from a CSR register
 assign dtlb_data_write_address = dtlb_update_vaddr_csr_reg[`LM32_DTLB_IDX_RNG]; /* (dtlb_updating == `TRUE)
