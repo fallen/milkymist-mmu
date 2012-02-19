@@ -314,6 +314,15 @@ lm32_ram
      .read_data (dtlb_read_data)
      );
 
+always @(posedge clk_i)
+begin
+	if (dtlb_write_port_enable)
+	begin
+		$display("[DTLB data : %d] Writing 0x%08X to 0x%08X", $time, dtlb_write_data, dtlb_data_write_address);
+		$display("[DTLB tag : %d] Writing 0x%08X to 0x%08X", $time, dtlb_write_tag, dtlb_tag_write_address);
+	end
+end
+
 lm32_ram 
   #(
     // ----- Parameters -------
