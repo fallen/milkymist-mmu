@@ -467,14 +467,12 @@ static void dtlbtest(void)
 			 "wcsr tlbpaddr, r11":::"r11");
 
 	// Updating the DTLB line with the previously defined mapping
-	// Update is (2 << 2) + 1 because we deal with DTLB
+	// Update is (2 << 2) + 1 == 5 because we deal with DTLB
 	asm volatile	("xor r11, r11, r11\n\t"
 			 "ori r11, r11, 5\n\t"
 			 "wcsr tlbctrl, r11":::"r11");
 
 	puts("Enable MMU DTLB");
-
-//	addr = (unsigned int *)0x44001000;
 
 	// Enable DTLB -> going into USER MODE
 	asm volatile	("xor r11, r11, r11\n\t"
@@ -482,8 +480,8 @@ static void dtlbtest(void)
 			 "wcsr tlbctrl, r11":::"r11");
 
 	// Let's write to Virtual address 0x44001000
-
-//	*addr = 0x42;
+	// addr = (unsigned int *)0x44001000;
+	// *addr = 0x42;
 
 	asm volatile	("xor r11, r11, r11\n\t"
 			 "mvhi r11, 0x4400\n\t"
