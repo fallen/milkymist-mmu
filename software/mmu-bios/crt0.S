@@ -134,23 +134,18 @@ loop:
 	nop
 	nop
 	xor r11, r11, r11
-	nop
 	ori r11, r11, 0x1000
 	xor r12, r12, r12
-	nop
 	ori r12, r12, 0x42
-	nop
 	sw (r11+0), r12
 	nop
 	nop
 	nop
 /* TLBVADDR = 0x00001000 */
-	xor r11, r11, r11
 	mvhi r11, 0x0000
 	ori r11, r11, 0x2001
 	WCSR_EXT CSR_TLBVADDR, 11
 /* TLBPADDR = 0x00000000 */
-	xor r11, r11, r11
 	mvhi r11, 0x0000
 	ori r11, r11, 0x1001
 	WCSR_EXT CSR_TLBPADDR, 11
@@ -172,16 +167,15 @@ loop:
 	nop
 	nop
 // *(unsigned int *)0x00001000 = 0x42;
-	xor r11, r11, r11
 	mvhi r11, 0x0000
 	ori r11, r11, 0x2000
 	xor r12, r12, r12
 	ori r12, r12, 0x42
 	sw (r11+0), r12
 
-
+/* TLBCTRL = 0x0000009 which is cmd DTLB_SWITCH_TO_KERNEL_MODE */
 	xor r11, r11, r11
-	ori r11, r11, 9
+	ori r11, r11, 0x9
 	WCSR_EXT CSR_TLBCTRL, 11
 	nop
 	nop
@@ -198,12 +192,54 @@ loop:
 	bne r12, r13, _crt0
 	nop
 	nop
+/* TLBVADDR = 0x00003000 */
+	mvhi r11, 0x0000
+	ori r11, r11, 0x3001
+	WCSR_EXT CSR_TLBVADDR, 11
+
+/* TLBPADDR = 0x00004000 */
+	mvhi r11, 0x0000
+	ori r11, r11, 0x4001
+	WCSR_EXT CSR_TLBPADDR, 11
+
+/* TLBCTRL = 0x80000010 which is cmd DTLB_UPDATE */
+	xor r11, r11, r11
+	ori r11, r11, 5
+	WCSR_EXT CSR_TLBCTRL, 11
+
+/* We write 0x4243 to paddr 0x00004050 */
+	xor r11, r11, r11
+	ori r11, r11, 0x4050
+	xor r12, r12, r12
+	ori r12, r12, 0x4243
+	sw (r11+0), r12
+
+/* TLBCTRL = 0x00000011 which is cmd DTLB_SWITCH_TO_USER_MODE */
+	xor r11, r11, r11
+	ori r11, r11, 0x11
+	WCSR_EXT CSR_TLBCTRL, 11
 	nop
 	nop
+/* We read from vaddr 0x00003050 ( == paddr 0x00004050 ) and compare to 0x4243 */
+	xor r11, r11, r11
+	ori r11, r11, 0x3050
+	lw r12, (r11+0)
+	xor r13, r13, r13
+	ori r13, r13, 0x4243
+	bne r12, r13, _crt0
 	nop
+/* We read from vaddr 0x00003050 ( == paddr 0x00004050 ) and compare to 0x4243 */
+	xor r11, r11, r11
+	ori r11, r11, 0x3050
+	lw r12, (r11+0)
+	xor r13, r13, r13
+	ori r13, r13, 0x4243
+	bne r12, r13, _crt0
 	nop
-	nop
-	nop
+/* TLBCTRL = 0x0000009 which is cmd DTLB_SWITCH_TO_KERNEL_MODE */
+	xor r11, r11, r11
+	ori r11, r11, 0x9
+	WCSR_EXT CSR_TLBCTRL, 11
 	nop
 	nop
 	nop
