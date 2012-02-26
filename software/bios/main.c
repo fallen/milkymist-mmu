@@ -450,12 +450,15 @@ static char *get_token(char **str)
 static void dtlbtest(void)
 {
 	volatile unsigned int *addr;
+	register unsigned int value = 0x43;
 	puts("Starting DTLB tests...");
-	puts("Let's try to map Virtual address 0x44001000 to Physical address 0x44000000");
 
+	printf("Data store test : ");
+
+	//Let's try to map Virtual address 0x44001000 to Physical address 0x44000000
 	mmu_dtlb_map(0x44001000, 0x44000000);
 
-	puts("Enable MMU DTLB");
+	//Enable MMU DTLB
 	enable_dtlb();
 
 	// Let's write to Virtual address 0x44001000
@@ -471,9 +474,7 @@ static void dtlbtest(void)
 	// Disable DTLB -> going back into KERNEL MODE
 	disable_dtlb();
 
-	puts("We have disabled MMU DTLB");
-	puts("Let's read back from Physical address 0x44000000");
-
+	//Let's read back from Physical address 0x44000000
 	addr = (unsigned int *)0x44000000;
 	if (*addr == 0x42)
 		puts("SUCCESS");
@@ -481,6 +482,23 @@ static void dtlbtest(void)
 		puts("FAILURE");
 
 	printf("0x44000000 contains %08X\n", *addr);
+
+	printf("Data load test : ");
+
+	//Now let's try to read from Virtual address 0x44001000
+	enable_dtlb();
+	//Following code means : value = *(unsigned int *)0x44001000;
+	asm volatile	("mvhi r11, 0x4400\n\t"
+			 "ori r11, r11, 0x1000\n\t"
+			 "lw %0, (r11+0)":"=r"(value)::"r11");
+	disable_dtlb();
+
+	if (value == 0x42)
+		puts("SUCCESS");
+	else
+		puts("FAILURE");
+
+	printf("value contains %08X\n", value);
 }
 
 static void do_command(char *c)
