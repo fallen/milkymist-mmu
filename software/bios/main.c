@@ -38,6 +38,7 @@
 #include <hal/brd.h>
 #include <hal/usb.h>
 #include <hal/ukb.h>
+#include <hal/mmu.h>
 
 #include "boot.h"
 #include "splash.h"
@@ -452,30 +453,10 @@ static void dtlbtest(void)
 	puts("Starting DTLB tests...");
 	puts("Let's try to map Virtual address 0x44001000 to Physical address 0x44000000");
 
-	// Setting virtual address in CSR TLBVADDR
-	// r11 LSb is 1 because we deal with DTLB
-	asm volatile	("mvhi r11, 0x4400\n\t"
-			 "ori r11, r11, 0x1001\n\t"
- 			 "wcsr tlbvaddr, r11":::"r11");
-
-	// Setting physical address in CSR TLBPADDR
-	// r11 LSb is 1 because we deal with DTLB
-	asm volatile	("mvhi r11, 0x4400\n\t"
-			 "ori r11, r11, 1\n\t"
-			 "wcsr tlbpaddr, r11":::"r11");
-
-	// Updating the DTLB line with the previously defined mapping
-	// Update is (2 << 2) + 1 == 5 because we deal with DTLB
-	asm volatile	("xor r11, r11, r11\n\t"
-			 "ori r11, r11, 5\n\t"
-			 "wcsr tlbctrl, r11":::"r11");
+	mmu_dtlb_map(0x44001000, 0x44000000);
 
 	puts("Enable MMU DTLB");
-
-	// Enable DTLB -> going into USER MODE
-	asm volatile	("xor r11, r11, r11\n\t"
-			 "ori r11, r11, 0x11\n\t"
-			 "wcsr tlbctrl, r11":::"r11");
+	enable_dtlb();
 
 	// Let's write to Virtual address 0x44001000
 	// addr = (unsigned int *)0x44001000;
@@ -488,18 +469,9 @@ static void dtlbtest(void)
 			 "sw (r11+0), r12":::"r11", "r12");
 
 	// Disable DTLB -> going back into KERNEL MODE
-	asm volatile	("xor r11, r11, r11\n\t"
-			 "ori r11, r11, 9\n\t"
-			 "wcsr tlbctrl, r11":::"r11");
-
-	asm volatile	("xor r0, r0, r0\n\t"
-			 "xor r0, r0, r0\n\t"
-			 "xor r0, r0, r0\n\t"
-			 "xor r0, r0, r0\n\t"
-			 "xor r0, r0, r0");
+	disable_dtlb();
 
 	puts("We have disabled MMU DTLB");
-
 	puts("Let's read back from Physical address 0x44000000");
 
 	addr = (unsigned int *)0x44000000;
@@ -508,8 +480,7 @@ static void dtlbtest(void)
 	else
 		puts("FAILURE");
 
-	printf("0x44000000 == %d\n", *addr);
-
+	printf("0x44000000 contains %08X\n", *addr);
 }
 
 static void do_command(char *c)
