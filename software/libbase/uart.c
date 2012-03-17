@@ -49,6 +49,15 @@ void uart_isr(void)
 {
 	unsigned int stat = CSR_UART_STAT;
 
+	mmu_dtlb_map(uart_isr, uart_isr);
+	mmu_dtlb_map(rx_buf, rx_buf);
+	mmu_dtlb_map(tx_buf, tx_buf);
+	mmu_dtlb_map(&tx_produce, &tx_produce);
+	mmu_dtlb_map(&tx_consume, &tx_consume);
+	mmu_dtlb_map(&rx_produce, &rx_produce);
+	mmu_dtlb_map(&tx_cts, &tx_cts);
+	mmu_dtlb_map(irq_ack, irq_ack);
+
 	if(stat & UART_STAT_RX_EVT) {
 		rx_buf[rx_produce] = CSR_UART_RXTX;
 		rx_produce = (rx_produce + 1) & UART_RINGBUFFER_MASK_RX;

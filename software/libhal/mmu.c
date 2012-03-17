@@ -18,9 +18,7 @@
 /* @vpfn : virtual page frame number
  * @pfn  : physical page frame number
  */
-inline void mmu_dtlb_map(vpfn, pfn)
-register unsigned int vpfn;
-register unsigned int pfn;
+inline void mmu_dtlb_map(unsigned int vpfn, unsigned int pfn)
 {
 
 	asm volatile	("ori %0, %0, 1\n\t"

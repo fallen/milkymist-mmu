@@ -1,10 +1,11 @@
 MMDIR=../..
 include $(MMDIR)/software/include.mak
 
-OBJECTS=crt0.o isr.o main.o unlzma.o boot.o boot-helper.o splash.o
+OBJECTS=crt0.o isr.o main.o unlzma.o boot.o boot-helper.o splash.o dtlb_load_test.o
 SEGMENTS=-j .text -j .data -j .rodata
 LIBS=$(MMDIR)/software/libhpdmc/libhpdmc.a $(MMDIR)/software/libbase/libbase-light.a \
      $(MMDIR)/software/libhal/libhal.a     $(MMDIR)/software/libnet/libnet.a
+CFLAGS += -g
 
 all: bios.bin bios-rescue.bin
 
@@ -20,6 +21,13 @@ bios-rescue.elf: linker-rescue.ld $(OBJECTS) $(LIBS)
 %.elf:
 	$(LD) $(LDFLAGS) -T $< -N -o $@ $(OBJECTS) -L$(MMDIR)/software/libhpdmc -L$(MMDIR)/software/libbase -L$(MMDIR)/software/libhal -L$(MMDIR)/software/libnet --start-group -lhpdmc -lbase-light -lhal -lnet --end-group
 	chmod -x $@
+
+mmu_test_gen: mmu_test_gen.c
+	gcc $< -o $@
+	chmod +x $@
+
+dtlb_load_test.c: mmu_test_gen
+	./$< > $@
 
 $(MMDIR)/software/libhpdmc/libhpdmc.a:
 	make -C $(MMDIR)/software/libhpdmc/

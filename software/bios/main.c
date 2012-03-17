@@ -449,7 +449,7 @@ static char *get_token(char **str)
 
 static void dtlbtest(void)
 {
-	volatile unsigned int *addr;
+/*	volatile unsigned int *addr;
 	register unsigned int value = 0x43;
 	puts("Starting DTLB tests...");
 
@@ -499,6 +499,10 @@ static void dtlbtest(void)
 		puts("FAILURE");
 
 	printf("value contains %08X\n", value);
+*/
+	//Running more dtlb load tests
+	dtlb_load_test();
+
 }
 
 static void do_command(char *c)
@@ -698,8 +702,8 @@ int main(int i, char **c)
 	putsnonl(banner);
 	crcbios();
 	brd_init();
-	tmu_init(); /* < for hardware-accelerated scrolling */
-	usb_init();
+//	tmu_init(); /* < for hardware-accelerated scrolling */
+//	usb_init();
 	ukb_init();
 
 	if(rescue)

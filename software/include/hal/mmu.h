@@ -19,13 +19,17 @@
 #define enable_dtlb() do { \
 	asm volatile	("xor r11, r11, r11\n\t" \
 			 "ori r11, r11, 0x11\n\t" \
-			 "wcsr tlbctrl, r11":::"r11"); \
+			 "wcsr tlbctrl, r11\n\t" \
+			 "xor r0, r0, r0":::"r11"); \
 } while(0);
 
 #define disable_dtlb() do { \
 	asm volatile	("xor r11, r11, r11\n\t" \
-			 "ori r11, r11, 0x9\n\t" \ 
-			 "wcsr tlbctrl, r11":::"r11"); \
+			 "ori r11, r11, 0x9\n\t" \
+			 "wcsr tlbctrl, r11\n\t" \
+			 "xor r0, r0, r0\n\t" \
+			 "xor r0, r0, r0\n\t" \
+			 "xor r0, r0, r0":::"r11"); \
 } while(0);
 
 void mmu_dtlb_map(unsigned int vpfn, unsigned int pfn);
