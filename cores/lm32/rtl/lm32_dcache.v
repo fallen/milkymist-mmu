@@ -117,7 +117,8 @@ module lm32_dcache (
    // To pipeline
     dtlb_miss,
     kernel_mode,
-    pa
+    pa,
+    csr_read_data
     );
 
 /////////////////////////////////////////////////////
@@ -195,6 +196,9 @@ input csr_write_enable;					// CSR write enable
 // Outputs
 /////////////////////////////////////////////////////
 
+output csr_read_data;
+reg [`LM32_WORD_RNG] csr_read_data;
+
 output stall_request;                                   // Request pipeline be stalled because cache is busy
 wire   stall_request;
 output restart_request;                                 // Request to restart instruction that caused the cache miss
@@ -261,6 +265,7 @@ wire [`LM32_WORD_RNG] physical_address;
 
 wire [`LM32_WORD_RNG] pa;
 output [`LM32_WORD_RNG] pa;
+reg [`LM32_WORD_RNG] latest_store_tlb_lookup; 
 
 assign pa = physical_address;
 
@@ -442,9 +447,9 @@ begin
 		`LM32_CSR_TLB_PADDRESS: if (csr_write_data[0]) dtlb_update_paddr_csr_reg[31:1] <= csr_write_data[31:1];
 		endcase
 	end
-	dtlb_ctrl_csr_reg[31] <= 0;
-	dtlb_update_vaddr_csr_reg[31] <= 0;
-	dtlb_update_paddr_csr_reg[31] <= 0;
+	dtlb_ctrl_csr_reg[0] <= 0;
+	dtlb_update_vaddr_csr_reg[0] <= 0;
+	dtlb_update_paddr_csr_reg[0] <= 0;
 end
 
 // Compute which ways in the cache match the address being read
@@ -689,6 +694,16 @@ begin
         endcase        
     end
 end
+
+always @(posedge clk_i `CFG_RESET_SENSITIVITY)
+begin
+	if (write_port_enable)
+	begin
+		latest_store_tlb_lookup <= { dtlb_read_data , address_m[`LM32_PAGE_OFFSET_RNG] };
+	end
+end
+
+assign csr_read_data = latest_store_tlb_lookup;
 
 always @(posedge clk_i `CFG_RESET_SENSITIVITY)
 begin

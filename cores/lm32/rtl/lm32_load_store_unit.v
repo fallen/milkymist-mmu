@@ -123,6 +123,7 @@ module lm32_load_store_unit (
     load_data_w,
     stall_wb_load,
     dtlb_miss,
+    csr_read_data,
     // To Wishbone
     d_dat_o,
     d_adr_o,
@@ -211,6 +212,9 @@ wire   dcache_stall_request;
 output dcache_refilling;
 wire   dcache_refilling;
 `endif
+
+output csr_read_data;
+wire [`LM32_WORD_RNG] csr_read_data;
 
 `ifdef CFG_IROM_ENABLED   
 output irom_store_data_m;                               // Store data to Instruction ROM
@@ -425,7 +429,8 @@ lm32_dcache #(
     .load_data              (dcache_data_m),
     .dtlb_miss		    (dtlb_miss),
     .kernel_mode	    (kernel_mode),
-    .pa			    (physical_address)
+    .pa			    (physical_address),
+    .csr_read_data	    (csr_read_data)
     );
 `endif
 

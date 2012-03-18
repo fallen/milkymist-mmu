@@ -616,6 +616,7 @@ wire mc_stall_request_x;                        // Multi-cycle arithmetic unit s
 wire [`LM32_WORD_RNG] mc_result_x;
 `endif
 
+wire [`LM32_WORD_RNG] load_store_csr_read_data_x;// Data read from load store CSRs
 // From CSRs
 `ifdef CFG_INTERRUPTS_ENABLED
 wire [`LM32_WORD_RNG] interrupt_csr_read_data_x;// Data read from interrupt CSRs
@@ -1027,6 +1028,7 @@ lm32_load_store_unit #(
     .load_data_w            (load_data_w),
     .stall_wb_load          (stall_wb_load),
     .dtlb_miss		    (dtlb_miss),
+    .csr_read_data          (load_store_csr_read_data_x),
     // To Wishbone
     .d_dat_o                (D_DAT_O),
     .d_adr_o                (D_ADR_O),
@@ -2128,6 +2130,7 @@ begin
     `LM32_CSR_JRX:  csr_read_data_x = jrx_csr_read_data;
 `endif
     `LM32_CSR_CFG2: csr_read_data_x = cfg2;
+    `LM32_CSR_TLB_CTRL: csr_read_data_x = load_store_csr_read_data_x;
       
     default:        csr_read_data_x = {`LM32_WORD_WIDTH{1'bx}};
     endcase
