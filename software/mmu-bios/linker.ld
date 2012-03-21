@@ -4,8 +4,7 @@ ENTRY(_start)
 __DYNAMIC = 0;
 
 MEMORY {
-	sram : ORIGIN = 0x00000000, LENGTH = 0xF000
-	lol : ORIGIN = 0x00000304, LENGTH = 0x200
+	sram : ORIGIN = 0x00000000, LENGTH = 0xFF0
 }
 
 SECTIONS
@@ -52,11 +51,6 @@ SECTIONS
 		_ebss = .;
 		_end = .;
 	} > sram
-
-	.lol :
-	{
-		. = ALIGN(4);
-	} > lol
 }
 
 PROVIDE(_fstack = ORIGIN(sram) + LENGTH(sram) - 4);

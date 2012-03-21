@@ -22,8 +22,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-		
-	
+
 /* Exception handlers - Must be 32 bytes long. */
 .section    .text, "ax", @progbits
 .global     _start
@@ -36,8 +35,8 @@ _reset_handler:
 	mvhi	r1, hi(_reset_handler)
 	ori	r1, r1, lo(_reset_handler)
 	wcsr	EBA, r1
+	xor 	r2, r2, r2
 	bi	_crt0
-	nop
 	nop
 
 _breakpoint_handler:
@@ -93,8 +92,7 @@ _divide_by_zero_handler:
 _interrupt_handler:
 	sw      (sp+0), ra
 	calli   .save_all
-//	calli   isr
-	nop
+	calli   isr
 	bi      .restore_all_and_eret
 	nop
 	nop
@@ -114,15 +112,6 @@ macaddress:
 	.byte 0x00
 
 _crt0:
-/* useless load bytes */
-	lb r2, (r0+0x164) 
-	lb r2, (r0+0xe1)
-	lb r2, (r0+0x14C)
-	lb r2, (r0+0xe3)
-	lb r2, (r0+0xe4)
-	lb r2, (r0+0x238)
-	nop
-	nop
 	mvi r3, 1
 	mvi r2, 0xdf
 /* give time for DTLB to flush itself */
@@ -130,124 +119,6 @@ loop:
 	nop
 	sub r2, r2, r3
 	bne r2, r0, loop
-	nop
-	nop
-	nop
-	xor r11, r11, r11
-	ori r11, r11, 0x1000
-	xor r12, r12, r12
-	ori r12, r12, 0x42
-	sw (r11+0), r12
-	nop
-	nop
-	nop
-/* TLBVADDR = 0x00001000 */
-	mvhi r11, 0x0000
-	ori r11, r11, 0x2001
-	WCSR_EXT CSR_TLBVADDR, 11
-/* TLBPADDR = 0x00000000 */
-	mvhi r11, 0x0000
-	ori r11, r11, 0x1001
-	WCSR_EXT CSR_TLBPADDR, 11
-/* TLBCTRL = 0x80000010 which is cmd DTLB_UPDATE */
-	xor r11, r11, r11
-	ori r11, r11, 5
-	WCSR_EXT CSR_TLBCTRL, 11
-/* TLBCTRL = 0x00000011 which is cmd DTLB_SWITCH_TO_USER_MODE */
-	xor r11, r11, r11
-	ori r11, r11, 0x11
-	WCSR_EXT CSR_TLBCTRL, 11
-/* Now DTLB should be active 
- * All accesses to virtual page 0 should be remapped to physical page 1
- */
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-// *(unsigned int *)0x00001000 = 0x42;
-	mvhi r11, 0x0000
-	ori r11, r11, 0x2000
-	xor r12, r12, r12
-	ori r12, r12, 0x42
-	sw (r11+0), r12
-
-/* TLBCTRL = 0x0000009 which is cmd DTLB_SWITCH_TO_KERNEL_MODE */
-	xor r11, r11, r11
-	ori r11, r11, 0x9
-	WCSR_EXT CSR_TLBCTRL, 11
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	xor r11, r11, r11
-	ori r11, r11, 0x1000
-	lw r12, (r11+0)
-	xor r13, r13, r13
-	ori r13, r13, 0x42
-	bne r12, r13, _crt0
-	nop
-	nop
-/* TLBVADDR = 0x00003000 */
-	mvhi r11, 0x0000
-	ori r11, r11, 0x3001
-	WCSR_EXT CSR_TLBVADDR, 11
-
-/* TLBPADDR = 0x00004000 */
-	mvhi r11, 0x0000
-	ori r11, r11, 0x4001
-	WCSR_EXT CSR_TLBPADDR, 11
-
-/* TLBCTRL = 0x80000010 which is cmd DTLB_UPDATE */
-	xor r11, r11, r11
-	ori r11, r11, 5
-	WCSR_EXT CSR_TLBCTRL, 11
-
-/* We write 0x4243 to paddr 0x00004050 */
-	xor r11, r11, r11
-	ori r11, r11, 0x4050
-	xor r12, r12, r12
-	ori r12, r12, 0x4243
-	sw (r11+0), r12
-
-/* TLBCTRL = 0x00000011 which is cmd DTLB_SWITCH_TO_USER_MODE */
-	xor r11, r11, r11
-	ori r11, r11, 0x11
-	WCSR_EXT CSR_TLBCTRL, 11
-	nop
-	nop
-/* We read from vaddr 0x00003050 ( == paddr 0x00004050 ) and compare to 0x4243 */
-	xor r11, r11, r11
-	ori r11, r11, 0x3050
-	lw r12, (r11+0)
-	xor r13, r13, r13
-	ori r13, r13, 0x4243
-	bne r12, r13, _crt0
-	nop
-/* We read from vaddr 0x00003050 ( == paddr 0x00004050 ) and compare to 0x4243 */
-	xor r11, r11, r11
-	ori r11, r11, 0x3050
-	lw r12, (r11+0)
-	xor r13, r13, r13
-	ori r13, r13, 0x4243
-	bne r12, r13, _crt0
-	nop
-/* TLBCTRL = 0x0000009 which is cmd DTLB_SWITCH_TO_KERNEL_MODE */
-	xor r11, r11, r11
-	ori r11, r11, 0x9
-	WCSR_EXT CSR_TLBCTRL, 11
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	nop
-	bi _crt0
 	/* Setup stack and global pointer */
 	mvhi    sp, hi(_fstack)
 	ori     sp, sp, lo(_fstack)
@@ -259,11 +130,6 @@ loop:
 	ori     r1, r1, lo(_fbss)
 	mvhi    r3, hi(_ebss)
 	ori     r3, r3, lo(_ebss)
-
-.pipeau:
-	.word 0x42424242
-	.word 0x55555555
-
 .clearBSS:
 	be      r1, r3, .callMain
 	sw      (r1+0), r0
@@ -274,8 +140,7 @@ loop:
 	mv      r1, r2
 	mvi     r2, 0
 	mvi     r3, 0
-//	bi      main
-	nop
+	bi      main
 
 .save_all:
 	addi    sp, sp, -56
@@ -312,11 +177,3 @@ loop:
 	lw      ba, (sp+52)
 	addi    sp, sp, 56
 	eret
-
-
-.section .lol:
-.org 0x304
-	.byte 0x42
-	.byte 0x43
-	.byte 0x55
-	.byte 0x44

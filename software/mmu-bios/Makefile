@@ -1,8 +1,8 @@
 MMDIR=../..
 include $(MMDIR)/software/include.mak
 
-OBJECTS=crt0.o 
-SEGMENTS=-j .text -j .data -j .rodata -j .lol
+OBJECTS=crt0.o main.o dtlb_load_test.o mmu.o isr.o
+SEGMENTS=-j .text -j .data -j .rodata
 
 all: bios.bin
 
@@ -10,6 +10,13 @@ all: bios.bin
 	$(MAKE) -C $(MMDIR)/tools
 	$(OBJCOPY) --pad-to 0x350 $(SEGMENTS) -O binary $< $@
 	chmod -x $@
+
+mmu_test_gen: mmu_test_gen.c
+	gcc $< -o $@
+	chmod +x $@
+
+dtlb_load_test.c: mmu_test_gen
+	./$< > $@
 
 bios.elf: linker.ld $(OBJECTS) $(LIBS)
 
