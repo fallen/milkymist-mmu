@@ -33,15 +33,15 @@
 #include <hw/flash.h>
 #include <hw/minimac.h>
 
-#include <hal/vga.h>
-#include <hal/tmu.h>
+//#include <hal/vga.h>
+//#include <hal/tmu.h>
 #include <hal/brd.h>
-#include <hal/usb.h>
-#include <hal/ukb.h>
+//#include <hal/usb.h>
+//#include <hal/ukb.h>
 #include <hal/mmu.h>
 
 #include "boot.h"
-#include "splash.h"
+//#include "splash.h"
 
 enum {
 	CSR_IE = 1, CSR_IM, CSR_IP, CSR_ICC, CSR_DCC, CSR_CC, CSR_CFG, CSR_EBA,
@@ -685,6 +685,7 @@ static void ethreset()
 int main(int i, char **c)
 {
 	char buffer[64];
+	unsigned short int k;
 
 	/* lock gdbstub ROM */
 	CSR_DBG_CTRL = DBG_CTRL_GDB_ROM_LOCK;
@@ -698,27 +699,40 @@ int main(int i, char **c)
 	irq_setmask(0);
 	irq_enable(1);
 	uart_init();
-	vga_init(!(rescue || (CSR_GPIO_IN & GPIO_BTN2)));
+//	vga_init(!(rescue || (CSR_GPIO_IN & GPIO_BTN2)));
 	putsnonl(banner);
 	crcbios();
 	brd_init();
 //	tmu_init(); /* < for hardware-accelerated scrolling */
 //	usb_init();
-	ukb_init();
+//	ukb_init();
 
 	if(rescue)
 		printf("I: Booting in rescue mode\n");
 
-	splash_display();
-	ethreset(); /* < that pesky ethernet PHY needs two resets at times... */
-	print_mac();
+//	splash_display();
+//	ethreset(); /* < that pesky ethernet PHY needs two resets at times... */
+//	print_mac();
 	boot_sequence();
-	vga_unblank();
-	vga_set_console(1);
+//	vga_unblank();
+//	vga_set_console(1);
+
+	uart_force_sync(1);
+	irq_enable(0);
+
+	puts("this is a test");
+	printf("This is another test : %d %p\n", 1, printf);
+
+	for (k = 0 ; k < 65000 ; ++k)
+		asm volatile("nop");
+
+	dtlbtest();
+
 	while(1) {
-		putsnonl("\e[1mBIOS>\e[0m ");
-		readstr(buffer, 64);
-		do_command(buffer);
+		if (++k == 0)
+			printf(".");
+		asm volatile("nop");
 	}
+
 	return 0;
 }

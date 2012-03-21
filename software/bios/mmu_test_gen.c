@@ -8,17 +8,20 @@ static inline void generate_test(int i, int j) {
 	int k;
 
 	puts("asm volatile(");
-	puts("\t\"xor r11, r11, r11\\n\\t\"");
-	puts("\t\"ori r11, r11, 0x11\\n\\t\"");
-	puts("\t\"wcsr tlbctrl, r11\\n\\t\"");
+//	puts("\t\"xor r11, r11, r11\\n\\t\"");
+//	puts("\t\"ori r11, r11, 0x11\\n\\t\"");
+//	puts("\t\"wcsr tlbctrl, r11\\n\\t\"");
 	puts("\t\"xor r0, r0, r0\\n\\t\"");
 	puts("\t\"xor r0, r0, r0\\n\\t\"");
 	puts("\t\"xor r0, r0, r0\\n\\t\"");
 	for (k = 0 ; k < 6 ; k++) {
-		if (k == i)
-			printf("\t\"sw (%2+0), %1");
-		else if(k == j)
-			printf("\t\"lw %0, (%2+0)");
+		if (k == i) {
+			printf("\t\"sw (%3+0), %2\\n\\t\"");
+			printf("\t\"rcsr %1, TLBCTRL");
+		}
+		else if(k == j) {
+			printf("\t\"lw %0, (%3+0)");
+		}
 		else
 			printf("\t\"xor r0, r0, r0");
 		if (k != 5)
@@ -26,7 +29,7 @@ static inline void generate_test(int i, int j) {
 		puts("\"");
 	}
 
-	puts(": \"=r\"(value_verif) : \"r\"(value), \"r\"(addr) :\"r11\"\n);");
+	puts(": \"=&r\"(value_verif), \"=&r\"(tlb_lookup) : \"r\"(value), \"r\"(addr) :\"r11\"\n);");
 
 }
 
@@ -38,7 +41,7 @@ int main(void) {
 	puts(	
 		"char a, b, c, d;\n"
 		"// map vaddr 0x4400 1000 to paddr 0x4400 0000\n"
-		"register unsigned int value, addr, value_verif, stack;\n"
+		"register unsigned int value, addr, value_verif, stack, tlb_lookup;\n"
 		"int success, failure;\n"
 		"mmu_dtlb_map(0x44001000, 0x44000000);\n" // for the test
 		"mmu_dtlb_map(0x873000, 0x873000);\n"
@@ -97,6 +100,7 @@ int main(void) {
 			generate_test(i, j);
 
 			puts("disable_dtlb();");
+			puts("printf(\"tlb_lookup = 0x%08X\\n\", tlb_lookup);");
 			printf("printf(\"Test n° %02d : \");\n", test_num);
 			puts(	"if (value == value_verif) {\n"
 					"\tputs(\"PASS\");\n"

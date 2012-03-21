@@ -703,7 +703,10 @@ begin
 	end
 end
 
-assign csr_read_data = latest_store_tlb_lookup;
+always @(*)
+begin
+	csr_read_data <= latest_store_tlb_lookup;
+end
 
 always @(posedge clk_i `CFG_RESET_SENSITIVITY)
 begin
