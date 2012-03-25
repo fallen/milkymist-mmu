@@ -8,26 +8,18 @@ static inline void generate_test(int i, int j) {
 	int k;
 
 	puts("asm volatile(");
-//	puts("\t\"xor r11, r11, r11\\n\\t\"");
-//	puts("\t\"ori r11, r11, 0x11\\n\\t\"");
-//	puts("\t\"wcsr tlbctrl, r11\\n\\t\"");
+	puts("\t\"xor r11, r11, r11\\n\\t\"");
+	puts("\t\"ori r11, r11, 0x11\\n\\t\"");
+	puts("\t\"wcsr tlbctrl, r11\\n\\t\"");
 	puts("\t\"xor r0, r0, r0\\n\\t\"");
 	puts("\t\"xor r0, r0, r0\\n\\t\"");
 	puts("\t\"xor r0, r0, r0\\n\\t\"");
 	for (k = 0 ; k < 6 ; k++) {
 		if (k == i) {
-			puts("\t\"sw (%3+0), %2\\n\\t\"");
-			puts("\t\"xor r0, r0, r0\\n\\t\"");
-			puts("\t\"rcsr %1, TLBCTRL\\n\\t\"");
-			puts("\t\"xor r0, r0, r0\\n\\t\"");
-			puts("\t\"xor r0, r0, r0\\n\\t\"");
-			puts("\t\"xor r0, r0, r0\\n\\t\"");
-			printf("\t\"xor r0, r0, r0");
-//			printf("\t\"xor r0, r0, r0");
+			printf("\t\"sw (%3+0), %2");
 		}
 		else if(k == j) {
 			printf("\t\"lw %0, (%3+0)");
-//			printf("\t\"rcsr %1, TLBDBG");
 		}
 		else
 			printf("\t\"xor r0, r0, r0");
@@ -50,7 +42,8 @@ int main(void) {
 		"// map vaddr 0x4400 1000 to paddr 0x4400 0000\n"
 		"register unsigned int value, addr, value_verif, stack, tlb_lookup;\n"
 		"int success, failure;\n"
-		"mmu_dtlb_map(0x00002000, 0x00001000);\n" // for the test
+//		"mmu_dtlb_map(0x00002000, 0x00001000);\n" // for the test
+		"mmu_dtlb_map(0x44002000, 0x44001000);\n" // for the test
 		"asm volatile(\"mv %0, sp\" : \"=r\"(stack) :: );\n"
 //		"mmu_dtlb_map(stack, stack);\n"
 //		"mmu_dtlb_map(stack+0x1000, stack+0x1000);\n"
@@ -60,7 +53,7 @@ int main(void) {
 		"b = 1;\n"
 		"c = 2;\n"
 		"d = 3;\n"
-		"addr = 0x00002000;\n"
+		"addr = 0x44002000;\n"
 		"success = 0;\n"
 		"failure = 0;"
 	);
