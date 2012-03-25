@@ -3,7 +3,7 @@ void puts(char *str)
 
 	while (*str != '\0')
 	{
-//		*((unsigned int *)0xe0000000) = *str;
+		*((unsigned int *)0x44003000) = *str;
 		str++;
 	}
 
