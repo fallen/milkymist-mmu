@@ -212,8 +212,8 @@ reg    refilling;
 output [`LM32_WORD_RNG] load_data;                      // Data read from cache
 wire   [`LM32_WORD_RNG] load_data;
 
-output [`LM32_WORD_RNG] kernel_mode;
-wire [`LM32_WORD_RNG] kernel_mode;
+output kernel_mode;
+wire kernel_mode;
 
 output dtlb_miss;
 

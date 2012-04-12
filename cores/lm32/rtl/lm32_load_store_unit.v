@@ -297,7 +297,7 @@ reg [`LM32_WORD_RNG] wb_data_m;                         // Data read from Wishbo
 reg wb_load_complete;                                   // Indicates when a Wishbone load is complete
 
 wire [`LM32_WORD_RNG] physical_address;
-wire [`LM32_WORD_RNG] kernel_mode;
+wire kernel_mode;
 
 /////////////////////////////////////////////////////
 // Functions
