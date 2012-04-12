@@ -279,7 +279,7 @@ reg [addr_dtlb_index_width-1:0] dtlb_update_set;
 reg dtlb_flushing;
 reg [addr_dtlb_index_width-1:0] dtlb_flush_set;
 reg dtlb_miss;
-reg dtlb_miss_addr;
+reg [`LM32_WORD_RNG] dtlb_miss_addr;
 
 genvar i, j;
 
