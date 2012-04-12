@@ -22,17 +22,17 @@
  * able to cut down synthesis times.
  */
 `define ENABLE_MEMORYCARD
-`define ENABLE_ETHERNET
-`define ENABLE_USB
+//`define ENABLE_ETHERNET
+//`define ENABLE_USB
 
-`define ENABLE_AC97
-`define ENABLE_PFPU
-`define ENABLE_TMU
+//`define ENABLE_AC97
+//`define ENABLE_PFPU
+//`define ENABLE_TMU
 `define ENABLE_FMLMETER
-`define ENABLE_VIDEOIN
-`define ENABLE_MIDI
-`define ENABLE_DMX
-`define ENABLE_IR
+//`define ENABLE_VIDEOIN
+//`define ENABLE_MIDI
+//`define ENABLE_DMX
+//`define ENABLE_IR
 
 `ifndef ENABLE_TMU
 `define ENABLE_MEMTEST
