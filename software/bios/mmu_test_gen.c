@@ -8,19 +8,18 @@ static inline void generate_test(int i, int j) {
 	int k;
 
 	puts("asm volatile(");
-//	puts("\t\"xor r11, r11, r11\\n\\t\"");
-//	puts("\t\"ori r11, r11, 0x11\\n\\t\"");
-//	puts("\t\"wcsr tlbctrl, r11\\n\\t\"");
+	puts("\t\"xor r11, r11, r11\\n\\t\"");
+	puts("\t\"ori r11, r11, 0x11\\n\\t\"");
+	puts("\t\"wcsr tlbctrl, r11\\n\\t\"");
 	puts("\t\"xor r0, r0, r0\\n\\t\"");
 	puts("\t\"xor r0, r0, r0\\n\\t\"");
 	puts("\t\"xor r0, r0, r0\\n\\t\"");
 	for (k = 0 ; k < 6 ; k++) {
 		if (k == i) {
-			printf("\t\"sw (%3+0), %2\\n\\t\"");
-			printf("\t\"rcsr %1, TLBCTRL");
+			printf("\t\"sw (%2+0), %1");
 		}
 		else if(k == j) {
-			printf("\t\"lw %0, (%3+0)");
+			printf("\t\"lw %0, (%2+0)");
 		}
 		else
 			printf("\t\"xor r0, r0, r0");
@@ -29,7 +28,7 @@ static inline void generate_test(int i, int j) {
 		puts("\"");
 	}
 
-	puts(": \"=&r\"(value_verif), \"=&r\"(tlb_lookup) : \"r\"(value), \"r\"(addr) :\"r11\"\n);");
+	puts(": \"=&r\"(value_verif) : \"r\"(value), \"r\"(addr) :\"r11\"\n);");
 
 }
 
