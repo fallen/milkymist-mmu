@@ -551,8 +551,8 @@ assign dtlb_tag_write_address = (dtlb_flushing == `TRUE)
 				? dtlb_flush_set
 				: dtlb_update_vaddr_csr_reg[`LM32_DTLB_IDX_RNG];
 
-assign dtlb_data_read_port_enable = (stall_x == `FALSE);
-assign dtlb_tag_read_port_enable = (stall_x == `FALSE);
+assign dtlb_data_read_port_enable = (stall_x == `FALSE) || !stall_m;
+assign dtlb_tag_read_port_enable = (stall_x == `FALSE) || !stall_m;
 assign dtlb_write_port_enable = dtlb_updating || dtlb_flushing;
 assign dtlb_write_tag = (dtlb_flushing == `TRUE)
 			? `LM32_DTLB_INVALID_TAG
