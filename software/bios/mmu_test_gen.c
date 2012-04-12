@@ -118,6 +118,11 @@ int main(void) {
 				"d++;\n\n"
 			);
 			test_num++;
+
+			puts("\
+			for (count = 0 ; count <= 10000000 ; ++count) {\n\
+			\t	asm volatile(\"nop\");\n\
+			}");
 		}
 	}
 
