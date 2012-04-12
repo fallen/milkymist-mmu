@@ -35,6 +35,8 @@ static inline void generate_test(int i, int j) {
 int main(void) {
 
 	puts("#include <hal/mmu.h>\n");
+	puts("#include <base/console.h>\n");
+	puts("#include <stdio.h>\n");
 	puts("void dtlb_load_test(void) {\n");
 
 	puts(	
