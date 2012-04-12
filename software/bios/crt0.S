@@ -110,6 +110,13 @@ macaddress:
 	.byte 0x00
 
 _crt0:
+	mvi r3, 1
+	mvi r2, 0xdf
+/* give time for DTLB to flush itself */
+loop:
+	nop
+	sub r2, r2, r3
+	bne r2, r0, loop
 	/* Setup stack and global pointer */
 	mvhi    sp, hi(_fstack)
 	ori     sp, sp, lo(_fstack)
