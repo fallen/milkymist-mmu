@@ -699,34 +699,22 @@ int main(int i, char **c)
 	irq_setmask(0);
 	irq_enable(1);
 	uart_init();
-//	vga_init(!(rescue || (CSR_GPIO_IN & GPIO_BTN2)));
 	putsnonl(banner);
 	crcbios();
 	brd_init();
-//	tmu_init(); /* < for hardware-accelerated scrolling */
-//	usb_init();
-//	ukb_init();
 
 	if(rescue)
 		printf("I: Booting in rescue mode\n");
 
-//	splash_display();
-//	ethreset(); /* < that pesky ethernet PHY needs two resets at times... */
-//	print_mac();
 	boot_sequence();
-//	vga_unblank();
-//	vga_set_console(1);
 
 	uart_force_sync(1);
 	irq_enable(0);
 
-	puts("this is a test");
-	printf("This is another test : %d %p\n", 1, printf);
-
 	for (k = 0 ; k < 65000 ; ++k)
 		asm volatile("nop");
 
-	dtlbtest();
+	dtlb_load_test();
 
 	while(1) {
 		if (++k == 0)
