@@ -41,42 +41,18 @@ int main(void) {
 
 	puts(	
 		"char a, b, c, d;\n"
-		"// map vaddr 0x4400 1000 to paddr 0x4400 0000\n"
-		"register unsigned int value, addr, value_verif, stack, tlb_lookup;\n"
+		"// map vaddr 0x4400 2000 to paddr 0x4400 1000\n"
+		"register unsigned int value, addr, value_verif, stack, data;\n"
 		"int success, failure;\n"
-		"mmu_dtlb_map(0x44001000, 0x44000000);\n" // for the test
-		"mmu_dtlb_map(0x873000, 0x873000);\n"
-		"mmu_dtlb_map(0x872000, 0x872000);\n"
-		"mmu_dtlb_map(0x871000, 0x871000);\n"
-		"mmu_dtlb_map(0x870000, 0x870000);\n"
-		"mmu_dtlb_map(0x86F000, 0x86F000);\n" // for dtlb_load_test and constants
-		"mmu_dtlb_map(0x86E000, 0x86E000);\n" // for constants
-		"mmu_dtlb_map(0x86D000, 0x86D000);\n"
-		"mmu_dtlb_map(0x86C000, 0x86C000);\n"
-		"mmu_dtlb_map(0x86B000, 0x86B000);\n"
-		"mmu_dtlb_map(0x86A000, 0x86A000);\n"
-		"mmu_dtlb_map(0x869000, 0x869000);\n"
-		"mmu_dtlb_map(0x868000, 0x868000);\n"
-		"mmu_dtlb_map(0x867000, 0x867000);\n" // for isr and uart_isr
-		"mmu_dtlb_map(0x866000, 0x866000);\n" // for printf
-		//"mmu_dtlb_map(0x866000, 0x866000);\n" // for the fun
-		"mmu_dtlb_map(0x865000, 0x865000);\n" // for puts
-		"mmu_dtlb_map(0x864000, 0x864000);\n" // for dtlb_load_test
-		"mmu_dtlb_map(0x863000, 0x863000);\n"
-		"mmu_dtlb_map(0x862000, 0x862000);\n"
-		"mmu_dtlb_map(0x861000, 0x861000);\n"
-		"mmu_dtlb_map(0x860000, 0x860000);\n"
-		"mmu_dtlb_map(0xe0000000, 0xe0000000);\n"
+		"unsigned int count;\n"
 		"asm volatile(\"mv %0, sp\" : \"=r\"(stack) :: );\n"
-		"mmu_dtlb_map(stack, stack);\n"
-		"mmu_dtlb_map(stack+0x1000, stack+0x1000);\n"
-		"mmu_dtlb_map(stack-0x1000, stack-0x1000);\n"
+		"mmu_dtlb_map(0x44002000, 0x44001000);\n"
 		"printf(\"stack == 0x%08X\\n\", stack);"
 		"a = 0;\n"
 		"b = 1;\n"
 		"c = 2;\n"
 		"d = 3;\n"
-		"addr = 0x44001000;\n"
+		"addr = 0x44002000;\n"
 		"success = 0;\n"
 		"failure = 0;"
 	);
