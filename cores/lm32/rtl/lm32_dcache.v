@@ -697,7 +697,7 @@ end
 
 always @(posedge clk_i `CFG_RESET_SENSITIVITY)
 begin
-	if (write_port_enable)
+	if (write_port_enable && (|way_dmem_we))
 	begin
 		latest_store_tlb_lookup <= { dtlb_read_data , address_m[`LM32_PAGE_OFFSET_RNG] };
 	end
