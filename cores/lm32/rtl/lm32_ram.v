@@ -125,4 +125,14 @@ always @(posedge read_clk)
   if (enable_read)
     ra <= read_address;
 
+reg [31:0] i;
+
+initial
+begin
+	for (i = 0; i < 2**address_width; i = i + 1)
+	begin
+		mem[i] = {data_width{1'b0}};
+	end
+end
+
 endmodule
