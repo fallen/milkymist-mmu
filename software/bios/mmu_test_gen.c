@@ -68,16 +68,19 @@ int main(void) {
 				"value |= c << 8;\n"
 				"value |= d;\n"
 				"addr += 4;\n"
-
-				//"enable_dtlb();"
-
 			);
 
 
 			generate_test(i, j);
 
 			puts("disable_dtlb();");
-			puts("printf(\"tlb_lookup = 0x%08X\\n\", tlb_lookup);");
+			puts("printf(\"addr == 0x%08X\\n\", addr);");
+			puts("printf(\"[MMU OFF] *(0x%08X) == 0x%08X\\n\", addr, *(unsigned int *)addr);");
+			puts("enable_dtlb();");
+			puts("asm volatile(\"lw %0, (%1+0)\" : \"=&r\"(data) : \"r\"(addr) : );");
+			puts("disable_dtlb();");
+			puts("printf(\"[MMU ON] *(0x%08X) == 0x%08X\\n\", addr, data);");
+			puts("printf(\"[MMU OFF] *(0x%08X) == 0x%08X\\n\", addr-0x1000, *(unsigned int *)(addr - 0x1000));");
 			printf("printf(\"Test n° %02d : \");\n", test_num);
 			puts(	"if (value == value_verif) {\n"
 					"\tputs(\"PASS\");\n"
