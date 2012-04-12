@@ -715,6 +715,7 @@ begin
 		dtlb_flushing <= 1;
 		dtlb_flush_set <= {addr_dtlb_index_width{1'b1}};
 		dtlb_state <= `LM32_TLB_STATE_FLUSH;
+		dtlb_updating <= 0;
 	end
 	else
 	begin
@@ -728,6 +729,8 @@ begin
 			begin
 				// FIXME : We need to generate an exception
 				dtlb_miss_addr <= address_m;
+				dtlb_updating <= 0;
+				$display("ERROR : DTLB MISS on addr 0x%08X", address_m);
 			end
 			else if (csr_write_enable && csr_write_data[0])
 			begin
@@ -740,6 +743,7 @@ begin
 						dtlb_flushing <= 1;
 						dtlb_flush_set <= {addr_dtlb_index_width{1'b1}};
 						dtlb_state <= `LM32_TLB_STATE_FLUSH;
+						dtlb_updating <= 0;
 					end
 
 					`LM32_DTLB_CTRL_UPDATE:
@@ -750,11 +754,13 @@ begin
 					`LM32_TLB_CTRL_SWITCH_TO_KERNEL_MODE:
 					begin
 						kernel_mode_reg <= `LM32_KERNEL_MODE;
+						dtlb_updating <= 0;
 					end
 
 					`LM32_TLB_CTRL_SWITCH_TO_USER_MODE:
 					begin
 						kernel_mode_reg <= `LM32_USER_MODE;
+						dtlb_updating <= 0;
 					end
 
 					endcase
@@ -764,6 +770,7 @@ begin
 
 		`LM32_TLB_STATE_FLUSH:
 		begin
+			dtlb_updating <= 0;
 			if (dtlb_flush_set == {addr_dtlb_index_width{1'b0}})
 				dtlb_state <= `LM32_TLB_STATE_CHECK;
 			dtlb_flush_set <= dtlb_flush_set - 1'b1;
