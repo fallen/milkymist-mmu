@@ -141,13 +141,13 @@ parameter page_size = 4096;				// System page size
 `define LM32_DTLB_INVALID_ADDRESS	{ vpfn_width{1'b1} }
 
 localparam addr_page_offset_lsb = 0;
-localparam addr_page_offset_msb = addr_page_offset_lsb + clogb2_v1(page_size) - 1;
-localparam addr_dtlb_index_width = clogb2_v1(dtlb_sets);
+localparam addr_page_offset_msb = addr_page_offset_lsb + clogb2(page_size) - 2;
+localparam addr_dtlb_index_width = clogb2(dtlb_sets) - 1;
 localparam addr_dtlb_index_lsb = addr_page_offset_msb + 1;
 localparam addr_dtlb_index_msb = addr_dtlb_index_lsb + addr_dtlb_index_width - 1;
 localparam addr_pfn_lsb = addr_page_offset_msb + 1;
 localparam addr_pfn_msb = `LM32_WORD_WIDTH - 1;
-localparam vpfn_width = `LM32_WORD_WIDTH - clogb2_v1(page_size);
+localparam vpfn_width = `LM32_WORD_WIDTH - (clogb2(page_size) - 1);
 localparam addr_dtlb_tag_width = vpfn_width - addr_dtlb_index_width;
 localparam addr_dtlb_tag_lsb = addr_dtlb_index_msb + 1;
 localparam addr_dtlb_tag_msb = addr_dtlb_tag_lsb + addr_dtlb_tag_width - 1;
