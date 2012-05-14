@@ -99,6 +99,26 @@ _interrupt_handler:
 	nop
 	nop
 
+_scall_handler:
+	bi _scall_handler
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+
+_dtlb_miss_exception_handler:
+	sw	(sp+0), ra
+	addi	ea, ea, -4
+	calli	.save_all
+	calli	dtlb_miss_handler
+	bi	.restore_all_and_eret
+	nop
+	nop
+	nop
+
 macaddress:
 	.byte 0x10
 	.byte 0xe2

@@ -40,11 +40,13 @@ int main(void) {
 	puts(	
 		"char a, b, c, d;\n"
 		"// map vaddr 0x4400 2000 to paddr 0x4400 1000\n"
-		"register unsigned int value, addr, value_verif, stack, data;\n"
+		"register unsigned int value, addr, value_verif, stack, data, addr2;\n"
 		"int success, failure;\n"
 		"unsigned int count;\n"
 		"asm volatile(\"mv %0, sp\" : \"=r\"(stack) :: );\n"
 		"mmu_dtlb_map(0x44002000, 0x44001000);\n"
+		"mmu_dtlb_map(stack, stack);\n"
+		"mmu_dtlb_map(stack-0x1000, stack-0x1000);\n"
 		"printf(\"stack == 0x%08X\\n\", stack);"
 		"a = 0;\n"
 		"b = 1;\n"
@@ -73,12 +75,19 @@ int main(void) {
 
 			puts("disable_dtlb();");
 			puts("printf(\"addr == 0x%08X\\n\", addr);");
-			puts("printf(\"[MMU OFF] *(0x%08X) == 0x%08X\\n\", addr, *(unsigned int *)addr);");
+			puts("printf(\"[MMU OFF] *(0x%08X) == 0x%08X\\n\", addr, *(volatile unsigned int *)addr);");
 			puts("enable_dtlb();");
 			puts("asm volatile(\"lw %0, (%1+0)\" : \"=&r\"(data) : \"r\"(addr) : );");
 			puts("disable_dtlb();");
 			puts("printf(\"[MMU ON] *(0x%08X) == 0x%08X\\n\", addr, data);");
-			puts("printf(\"[MMU OFF] *(0x%08X) == 0x%08X\\n\", addr-0x1000, *(unsigned int *)(addr - 0x1000));");
+			puts("printf(\"[MMU OFF] *(0x%08X) == 0x%08X\\n\", addr-0x1000, *(volatile unsigned int *)(addr - 0x1000));");
+			puts("addr2 = 0x44000120; // Mac address");
+			puts("*(unsigned int *)(addr2+0x3000) = 42;");
+			puts("enable_dtlb();");
+//			puts("asm volatile(\"mvhi r11, 0x4400\\n\\t ori r11, r11, 0x0120\\n\\t lw %0, (r11+0)\" : \"=&r\"(data) :: \"r11\" );");
+			puts("asm volatile(\"mvhi r11, 0x4400\\n\\t ori r11, r11, 0x0120\\n\\t lw %0, (r11+0)\" : \"=&r\"(data) :: \"r11\" );");
+			puts("disable_dtlb();");
+			puts("printf(\"[MMU ON] *(0x%08X) == 0x%08X (%d)\\n\", addr2, data, data);");
 			printf("printf(\"Test n° %02d : \");\n", test_num);
 			puts(	"if (value == value_verif) {\n"
 					"\tputs(\"PASS\");\n"

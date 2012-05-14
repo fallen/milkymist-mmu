@@ -74,8 +74,8 @@ int printf(const char *fmt, ...)
 
 int main(int argc, char **argv)
 {
-
 	asm volatile("wcsr IE, r0");
+//	asm volatile("scall");
 	dtlb_load_test();
 
 	while (1)
