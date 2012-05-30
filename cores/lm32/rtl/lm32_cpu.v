@@ -967,6 +967,8 @@ lm32_decoder decoder (
     .csr_write_enable       (csr_write_enable_d)
     ); 
 
+wire dtlb_miss_exception;
+
 // Load/store unit       
 lm32_load_store_unit #(
     .associativity          (dcache_associativity),
@@ -985,6 +987,7 @@ lm32_load_store_unit #(
     .kill_x                 (kill_x),
     .kill_m                 (kill_m),
     .exception_m            (exception_m),
+    .exception_x            (exception_x),
     .store_operand_x        (store_operand_x),
     .load_store_address_x   (adder_result_x),
     .load_store_address_m   (operand_m),
@@ -1006,6 +1009,7 @@ lm32_load_store_unit #(
     .csr		    (csr_x),
     .csr_write_data         (operand_1_x),
     .csr_write_enable       (csr_write_enable_q_x),
+    .eret_q_x		    (eret_q_x),
     // From Wishbone
     .d_dat_i                (D_DAT_I),
     .d_ack_i                (D_ACK_I),
@@ -1027,7 +1031,7 @@ lm32_load_store_unit #(
 `endif
     .load_data_w            (load_data_w),
     .stall_wb_load          (stall_wb_load),
-    .dtlb_miss		    (dtlb_miss),
+    .dtlb_miss		    (dtlb_miss_exception),
     .csr_read_data          (load_store_csr_read_data_x),
     // To Wishbone
     .d_dat_o                (D_DAT_O),
@@ -1766,6 +1770,9 @@ assign non_debug_exception_x = (system_call_exception == `TRUE)
 `endif
                                )
 `endif
+`ifdef CFG_MMU_ENABLED
+			|| (dtlb_miss_exception == `TRUE)
+`endif
                             ;
 
 assign exception_x = (debug_exception_x == `TRUE) || (non_debug_exception_x == `TRUE);
@@ -1788,6 +1795,9 @@ assign exception_x =           (system_call_exception == `TRUE)
 				&& (D_CYC_O == `FALSE)
 `endif
                                )
+`endif
+`ifdef CFG_MMU_ENABLED
+			|| (dtlb_miss_exception == `TRUE)
 `endif
                             ;
 `endif
@@ -1837,7 +1847,10 @@ begin
         eid_x = `LM32_EID_INTERRUPT;
     else
 `endif
-        eid_x = `LM32_EID_SCALL;
+	if (dtlb_miss_exception == `TRUE )
+		eid_x = `LM32_EID_DTLB_MISS;
+	else
+		eid_x = `LM32_EID_SCALL;
 end
 
 // Stall generation
@@ -2557,13 +2570,15 @@ begin
 
 		 || ((debug_exception_x == `TRUE) 
 		     && (non_debug_exception_x == `FALSE)))
-	       branch_target_m <= {deba, eid_x, {3{1'b0}}};
+	       branch_target_m <= {deba[31:9], eid_x, {3{1'b0}}};
 	     else
-	       branch_target_m <= {eba, eid_x, {3{1'b0}}};
+	       branch_target_m <= {eba[31:9], eid_x, {3{1'b0}}};
 	   else
 	     branch_target_m <= branch_target_x;
 `else
-            branch_target_m <= exception_x == `TRUE ? {eba, eid_x, {3{1'b0}}} : branch_target_x;
+//if (exception_x == `TRUE)
+//	    $display("branch_target_m <= 0x%08X", branch_target_m);
+            branch_target_m <= exception_x == `TRUE ? {eba[31:9], eid_x, {3{1'b0}}} : branch_target_x;
 `endif
 `ifdef CFG_TRACE_ENABLED
             eid_m <= eid_x;

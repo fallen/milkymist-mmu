@@ -80,6 +80,7 @@ module lm32_load_store_unit (
     kill_x,
     kill_m,
     exception_m,
+    exception_x,
     store_operand_x,
     load_store_address_x,
     load_store_address_m,
@@ -101,6 +102,7 @@ module lm32_load_store_unit (
     csr,
     csr_write_data,
     csr_write_enable,
+    eret_q_x,
     // From Wishbone
     d_dat_i,
     d_ack_i,
@@ -164,6 +166,9 @@ input stall_m;                                          // M stage stall
 input kill_x;                                           // Kill instruction in X stage
 input kill_m;                                           // Kill instruction in M stage
 input exception_m;                                      // An exception occured in the M stage
+input exception_x;                                      // An exception occured in the X stage
+input eret_q_x;
+
 
 input [`LM32_CSR_RNG] csr;				// CSR read/write index
 input [`LM32_WORD_RNG] csr_write_data;			// Data to write to specified CSR
@@ -191,7 +196,8 @@ input dflush;                                           // Flush the data cache
 input [`LM32_WORD_RNG] irom_data_m;                     // Data from Instruction-ROM
 `endif
 
-input dtlb_miss;
+wire dtlb_miss;
+output dtlb_miss;
 
 input [`LM32_WORD_RNG] d_dat_i;                         // Data Wishbone interface read data
 input d_ack_i;                                          // Data Wishbone interface acknowledgement
@@ -273,6 +279,7 @@ reg dcache_select_m;
 wire [`LM32_WORD_RNG] dcache_data_m;                    // Data read from cache
 wire [`LM32_WORD_RNG] dcache_refill_address;            // Address to refill data cache from
 reg dcache_refill_ready;                                // Indicates the next word of refill data is ready
+reg d_adr_o_sampling;
 wire [`LM32_CTYPE_RNG] first_cycle_type;                // First Wishbone cycle type
 wire [`LM32_CTYPE_RNG] next_cycle_type;                 // Next Wishbone cycle type
 wire last_word;                                         // Indicates if this is the last word in the cache line
@@ -420,6 +427,8 @@ lm32_dcache #(
     .csr		    (csr),
     .csr_write_data	    (csr_write_data),
     .csr_write_enable	    (csr_write_enable),
+    .exception_x	    (exception_x),
+    .eret_q_x		    (eret_q_x),
     // ----- Outputs -----
     .stall_request          (dcache_stall_request),
     .restart_request        (dcache_restart_request),
@@ -427,7 +436,8 @@ lm32_dcache #(
     .refill_address         (dcache_refill_address),
     .refilling              (dcache_refilling),
     .load_data              (dcache_data_m),
-    .dtlb_miss		    (dtlb_miss),
+//    .dtlb_miss		    (dtlb_miss),
+    .dtlb_miss_q	    (dtlb_miss),
     .kernel_mode	    (kernel_mode),
     .pa			    (physical_address),
     .csr_read_data	    (csr_read_data)
@@ -654,6 +664,7 @@ always @(posedge clk_i `CFG_RESET_SENSITIVITY)
 begin
     if (rst_i == `TRUE)
     begin
+        d_adr_o_sampling <= `FALSE;
         d_cyc_o <= `FALSE;
         d_stb_o <= `FALSE;
         d_dat_o <= {`LM32_WORD_WIDTH{1'b0}};
@@ -690,6 +701,7 @@ begin
                 else
 `endif                
                 begin
+		    d_adr_o_sampling <= 0;
                     // Refill/access complete
                     d_cyc_o <= `FALSE;
                     d_stb_o <= `FALSE;
@@ -716,6 +728,10 @@ begin
             if (dcache_refill_request == `TRUE)
             begin
                 // Start cache refill
+`ifdef CFG_VERBOSE_DISPLAY_ENABLED
+		$display("Sampling address to refill 0x%08X\n", first_address);
+`endif
+		d_adr_o_sampling <= 1;
                 d_adr_o <= first_address;
                 d_cyc_o <= `TRUE;
                 d_sel_o <= {`LM32_WORD_WIDTH/8{`TRUE}};
@@ -737,6 +753,10 @@ begin
                     )
             begin
                 // Data cache is write through, so all stores go to memory
+`ifdef CFG_VERBOSE_DISPLAY_ENABLED
+		$display("Sampling address to write through 0x%08X\n", store_data_m);
+`endif
+		d_adr_o_sampling <= 1;
                 d_dat_o <= store_data_m;
                 d_adr_o <= (kernel_mode == `LM32_KERNEL_MODE) ? load_store_address_m : physical_address;
                 d_cyc_o <= `TRUE;
@@ -752,6 +772,10 @@ begin
                     )
             begin
                 // Read requested address
+`ifdef CFG_VERBOSE_DISPLAY_ENABLED
+		$display("Sampling address to read 0x%08X\n", (kernel_mode == `LM32_KERNEL_MODE) ? load_store_address_m : physical_address);
+`endif
+		d_adr_o_sampling <= 1;
                 stall_wb_load <= `FALSE;
                 d_adr_o <= (kernel_mode == `LM32_KERNEL_MODE) ? load_store_address_m : physical_address;
                 d_cyc_o <= `TRUE;

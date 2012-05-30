@@ -76,10 +76,11 @@
 `define LM32_DC_STATE_CHECK              3'b010
 `define LM32_DC_STATE_REFILL             3'b100
 
-`define LM32_DTLB_CTRL_FLUSH		 	4'h1
-`define LM32_DTLB_CTRL_UPDATE		 	4'h2
-`define LM32_TLB_CTRL_SWITCH_TO_KERNEL_MODE	4'h4
-`define LM32_TLB_CTRL_SWITCH_TO_USER_MODE	4'h8
+`define LM32_DTLB_CTRL_FLUSH		 	5'h1
+`define LM32_DTLB_CTRL_UPDATE		 	5'h2
+`define LM32_TLB_CTRL_SWITCH_TO_KERNEL_MODE	5'h4
+`define LM32_TLB_CTRL_SWITCH_TO_USER_MODE	5'h8
+`define LM32_TLB_CTRL_INVALIDATE_ENTRY		5'h10
 
 `define LM32_TLB_STATE_CHECK		 2'b01
 `define LM32_TLB_STATE_FLUSH		 2'b10
@@ -107,6 +108,8 @@ module lm32_dcache (
     csr,
     csr_write_data,
     csr_write_enable,
+    exception_x,
+    eret_q_x,
     // ----- Outputs -----
     stall_request,
     restart_request,
@@ -115,7 +118,7 @@ module lm32_dcache (
     refilling,
     load_data,
    // To pipeline
-    dtlb_miss,
+    dtlb_miss_q,
     kernel_mode,
     pa,
     csr_read_data
@@ -135,7 +138,7 @@ parameter dtlb_sets = 1024;				// Number of lines of DTLB
 parameter page_size = 4096;				// System page size
 
 `define LM32_DTLB_IDX_RNG		addr_dtlb_index_msb:addr_dtlb_index_lsb
-`define LM32_DTLB_INVALID_TAG		{ {9{1'b1}}, `FALSE}
+//`define LM32_DTLB_INVALID_TAG		{ {9{1'b1}}, `FALSE}
 `define LM32_DTLB_ADDRESS_PFN_RNG	addr_pfn_msb:addr_pfn_lsb
 `define LM32_PAGE_OFFSET_RNG		addr_page_offset_msb:addr_page_offset_lsb
 `define LM32_DTLB_INVALID_ADDRESS	{ vpfn_width{1'b1} }
@@ -153,6 +156,17 @@ localparam addr_dtlb_tag_lsb = addr_dtlb_index_msb + 1;
 localparam addr_dtlb_tag_msb = addr_dtlb_tag_lsb + addr_dtlb_tag_width - 1;
 
 `define LM32_DTLB_TAG_INVALID		{ addr_dtlb_tag_width{ 1'b0 } }
+`define LM32_DTLB_LOOKUP_RANGE		vpfn_width-1:0
+
+/* The following define is the range containing the TAG inside the dtlb_read_data wire which contains the DTLB value from BlockRAM
+ * Indeed dtlb_read_data contains { VALID_BIT, TAG_VALUE, LOOKUP_VALUE }
+ * LM32_DTLB_TAG_RANGE is the range to extract the TAG_VALUE */
+`define LM32_DTLB_TAG_RANGE		vpfn_width+addr_dtlb_tag_width-1:vpfn_width
+
+/* The following define is the range containing the TAG inside a memory address like dtlb_update_vaddr_csr_reg for instance. */
+`define LM32_DTLB_ADDR_TAG_RNG		addr_dtlb_tag_msb:addr_dtlb_tag_lsb
+`define LM32_DTLB_VALID_BIT		vpfn_width+addr_dtlb_tag_width
+
 
 localparam addr_offset_width = clogb2(bytes_per_line)-1-2;
 localparam addr_set_width = clogb2(sets)-1;
@@ -191,13 +205,15 @@ input dflush;                                           // Indicates cache shoul
 input [`LM32_CSR_RNG] csr;				// CSR read/write index
 input [`LM32_WORD_RNG] csr_write_data;			// Data to write to specified CSR
 input csr_write_enable;					// CSR write enable
+input exception_x;					// An exception occured in the X stage
+input eret_q_x;
 
 /////////////////////////////////////////////////////
 // Outputs
 /////////////////////////////////////////////////////
 
 output csr_read_data;
-reg [`LM32_WORD_RNG] csr_read_data;
+wire [`LM32_WORD_RNG] csr_read_data;
 
 output stall_request;                                   // Request pipeline be stalled because cache is busy
 wire   stall_request;
@@ -215,7 +231,9 @@ wire   [`LM32_WORD_RNG] load_data;
 output kernel_mode;
 wire kernel_mode;
 
-output dtlb_miss;
+output dtlb_miss_q;
+//output dtlb_miss;
+//output dtlb_miss_int;
 
 /////////////////////////////////////////////////////
 // Internal nets and registers 
@@ -253,14 +271,9 @@ wire [addr_dtlb_index_width-1:0] dtlb_data_read_address;
 wire [addr_dtlb_index_width-1:0] dtlb_data_write_address;
 wire dtlb_data_read_port_enable;
 wire dtlb_write_port_enable;
-wire [vpfn_width-1:0] dtlb_write_data;
-wire [vpfn_width-1:0] dtlb_read_data;
+wire [vpfn_width + addr_dtlb_tag_width + 1 - 1:0] dtlb_write_data; // +1 is for valid_bit
+wire [vpfn_width + addr_dtlb_tag_width + 1 - 1:0] dtlb_read_data; // +1 is for valid_bit
 
-wire [addr_dtlb_index_width-1:0] dtlb_tag_read_address;
-wire dtlb_tag_read_port_enable;
-wire [addr_dtlb_index_width-1:0] dtlb_tag_write_address;
-wire [9:0] dtlb_write_tag;
-wire [9:0] dtlb_read_tag;
 wire [`LM32_WORD_RNG] physical_address;
 
 wire [`LM32_WORD_RNG] pa;
@@ -270,6 +283,8 @@ reg [`LM32_WORD_RNG] latest_store_tlb_lookup;
 assign pa = physical_address;
 
 reg kernel_mode_reg = `LM32_KERNEL_MODE;
+wire switch_to_kernel_mode;
+wire switch_to_user_mode;
 reg [`LM32_WORD_RNG] dtlb_update_vaddr_csr_reg = `LM32_WORD_WIDTH'd0;
 reg [`LM32_WORD_RNG] dtlb_update_paddr_csr_reg = `LM32_WORD_WIDTH'd0;
 reg [1:0] dtlb_state = `LM32_TLB_STATE_CHECK;
@@ -278,8 +293,12 @@ reg dtlb_updating;
 reg [addr_dtlb_index_width-1:0] dtlb_update_set;
 reg dtlb_flushing;
 reg [addr_dtlb_index_width-1:0] dtlb_flush_set;
-reg dtlb_miss;
+wire dtlb_miss;
+reg dtlb_miss_q = 0;
+reg dtlb_miss_int = 0;
 reg [`LM32_WORD_RNG] dtlb_miss_addr;
+wire dtlb_data_valid;
+wire [`LM32_DTLB_LOOKUP_RANGE] dtlb_lookup;
 
 genvar i, j;
 
@@ -300,7 +319,7 @@ assign kernel_mode = kernel_mode_reg;
 lm32_ram 
   #(
     // ----- Parameters -------
-    .data_width (vpfn_width),
+    .data_width (vpfn_width + addr_dtlb_tag_width + 1),
     .address_width (addr_dtlb_index_width)
 // Modified for Milkymist: removed non-portable RAM parameters
     ) dtlb_data_ram 
@@ -319,37 +338,16 @@ lm32_ram
      .read_data (dtlb_read_data)
      );
 
+`ifdef CFG_VERBOSE_DISPLAY_ENABLED
 always @(posedge clk_i)
 begin
 	if (dtlb_write_port_enable)
 	begin
 		$display("[DTLB data : %d] Writing 0x%08X to 0x%08X", $time, dtlb_write_data, dtlb_data_write_address);
-		$display("[DTLB tag : %d] Writing 0x%08X to 0x%08X", $time, dtlb_write_tag, dtlb_tag_write_address);
 	end
 end
+`endif
 
-lm32_ram 
-  #(
-    // ----- Parameters -------
-    .data_width (addr_dtlb_tag_width),
-    .address_width (addr_dtlb_index_width)
-// Modified for Milkymist: removed non-portable RAM parameters
-    ) dtlb_tag_ram 
-    (
-     // ----- Inputs -------
-     .read_clk (clk_i),
-     .write_clk (clk_i),
-     .reset (rst_i),
-     .read_address (dtlb_tag_read_address),
-     .enable_read (dtlb_tag_read_port_enable),
-     .write_address (dtlb_tag_write_address),
-     .enable_write (`TRUE),
-     .write_enable (dtlb_write_port_enable),
-     .write_data (dtlb_write_tag),    
-     // ----- Outputs -------
-     .read_data (dtlb_read_tag)
-     );
-    
    generate
       for (i = 0; i < associativity; i = i + 1)    
 	begin : memories
@@ -437,20 +435,31 @@ lm32_ram
 /////////////////////////////////////////////////////
 
 // CSR Write
-always @(posedge clk_i)
+always @(posedge clk_i `CFG_RESET_SENSITIVITY)
 begin
-	if (csr_write_enable)
+	if (rst_i == `TRUE)
 	begin
-		case (csr)
-		`LM32_CSR_TLB_CTRL:	if (csr_write_data[0]) dtlb_ctrl_csr_reg[31:1] <= csr_write_data[31:1];
-		`LM32_CSR_TLB_VADDRESS: if (csr_write_data[0]) dtlb_update_vaddr_csr_reg[31:1] <= csr_write_data[31:1];
-		`LM32_CSR_TLB_PADDRESS: if (csr_write_data[0]) dtlb_update_paddr_csr_reg[31:1] <= csr_write_data[31:1];
-		endcase
+		dtlb_ctrl_csr_reg <= `LM32_WORD_WIDTH'd0;
+		dtlb_update_vaddr_csr_reg <= `LM32_WORD_WIDTH'd0;
+		dtlb_update_paddr_csr_reg <= `LM32_WORD_WIDTH'd0;
 	end
-	dtlb_ctrl_csr_reg[0] <= 0;
-	dtlb_update_vaddr_csr_reg[0] <= 0;
-	dtlb_update_paddr_csr_reg[0] <= 0;
+	else
+	begin
+		if (csr_write_enable)
+		begin
+			case (csr)
+			`LM32_CSR_TLB_CTRL:	if (csr_write_data[0]) dtlb_ctrl_csr_reg[31:1] <= csr_write_data[31:1];
+			`LM32_CSR_TLB_VADDRESS: if (csr_write_data[0]) dtlb_update_vaddr_csr_reg[31:1] <= csr_write_data[31:1];
+			`LM32_CSR_TLB_PADDRESS: if (csr_write_data[0]) dtlb_update_paddr_csr_reg[31:1] <= csr_write_data[31:1];
+			endcase
+		end
+		dtlb_ctrl_csr_reg[0] <= 0;
+		dtlb_update_vaddr_csr_reg[0] <= 0;
+		dtlb_update_paddr_csr_reg[0] <= 0;
+	end
 end
+
+
 
 // Compute which ways in the cache match the address being read
 generate
@@ -459,11 +468,14 @@ generate
 // FIXME : We need to put physical address coming out from MMU instead of address_m[]
 //assign way_match[i] = ({way_tag[i], way_valid[i]} == {address_m[`LM32_DC_ADDR_TAG_RNG], `TRUE});
 
+assign dtlb_read_tag = dtlb_read_data[`LM32_DTLB_TAG_RANGE];
+assign dtlb_data_valid = dtlb_read_data[`LM32_DTLB_VALID_BIT];
+assign dtlb_lookup = dtlb_read_data[`LM32_DTLB_LOOKUP_RANGE];
+
 assign way_match[i] = (kernel_mode_reg == `LM32_KERNEL_MODE) ?
 		      ({way_tag[i], way_valid[i]} == {address_m[`LM32_DC_ADDR_TAG_RNG], `TRUE})
-		      : (dtlb_read_tag == `LM32_DTLB_TAG_INVALID) ?
-		      `FALSE
-		      : ({way_tag[i], way_valid[i]} == {dtlb_read_data, `TRUE});
+		      : /*dtlb_data_valid && (dtlb_read_tag == address_m[`LM32_DC_ADDR_TAG_RNG]) && 
+		     */ ({way_tag[i], way_valid[i]} == {dtlb_lookup, `TRUE});
 
 /*always @(*)
 begin
@@ -552,19 +564,15 @@ assign dtlb_tag_write_address = (dtlb_flushing == `TRUE)
 				: dtlb_update_vaddr_csr_reg[`LM32_DTLB_IDX_RNG];
 
 assign dtlb_data_read_port_enable = (stall_x == `FALSE) || !stall_m;
-assign dtlb_tag_read_port_enable = (stall_x == `FALSE) || !stall_m;
 assign dtlb_write_port_enable = dtlb_updating || dtlb_flushing;
-assign dtlb_write_tag = (dtlb_flushing == `TRUE)
-			? `LM32_DTLB_INVALID_TAG
-			: {dtlb_update_vaddr_csr_reg[30:22], `TRUE}; // 10-1 top VA bits
 
 assign physical_address = (kernel_mode_reg == `LM32_KERNEL_MODE)
 			    ? address_m
-			    : { dtlb_read_data , address_m[`LM32_PAGE_OFFSET_RNG] };
+			    : {dtlb_lookup, address_m[`LM32_PAGE_OFFSET_RNG]};
 
 assign dtlb_write_data = (dtlb_flushing == `TRUE)
-			 ? `LM32_DTLB_INVALID_ADDRESS
-			 : dtlb_update_paddr_csr_reg[`LM32_DTLB_ADDRESS_PFN_RNG];
+			 ? {`FALSE, {addr_dtlb_tag_width{1'b0}}, {vpfn_width{1'b0}}}
+			 : {`TRUE, {dtlb_update_vaddr_csr_reg[`LM32_DTLB_ADDR_TAG_RNG]}, dtlb_update_paddr_csr_reg[`LM32_DTLB_ADDRESS_PFN_RNG]};
 
 // Compute signal to indicate when we are on the last refill accesses
 generate 
@@ -602,11 +610,11 @@ assign tmem_write_data[`LM32_DC_TAGS_VALID_RNG] = ((last_refill == `TRUE) || (va
 assign tmem_write_data[`LM32_DC_TAGS_TAG_RNG] = refill_address[`LM32_DC_ADDR_TAG_RNG];
 
 // Signals that indicate which state we are in
-assign flushing = state[0];
+assign flushing = state[0]; //|| dtlb_miss;
 assign check = state[1];
 assign refill = state[2];
 
-assign miss = (~(|way_match)) && (load_q_m == `TRUE) && (stall_m == `FALSE);
+assign miss = (~(|way_match)) && (load_q_m == `TRUE) && (stall_m == `FALSE) && (~dtlb_miss);
 assign stall_request = (check == `FALSE) || (dtlb_state == `LM32_TLB_STATE_FLUSH && kernel_mode_reg != `LM32_KERNEL_MODE);
                       
 /////////////////////////////////////////////////////
@@ -675,6 +683,8 @@ begin
             end
             else if (dflush == `TRUE)
                 state <= `LM32_DC_STATE_FLUSH;
+//           else if (dtlb_miss == `TRUE)
+//		refill_address <= physical_address;
         end
 
         // Refill a cache line
@@ -697,15 +707,45 @@ end
 
 always @(posedge clk_i `CFG_RESET_SENSITIVITY)
 begin
-	if (write_port_enable && (|way_dmem_we))
+	if (rst_i == `TRUE)
+		latest_store_tlb_lookup <= `LM32_WORD_WIDTH'd0;
+	else
 	begin
-		latest_store_tlb_lookup <= { dtlb_read_data , address_m[`LM32_PAGE_OFFSET_RNG] };
+		if (write_port_enable && (|way_dmem_we))
+		begin
+			latest_store_tlb_lookup <= {dtlb_lookup, address_m[`LM32_PAGE_OFFSET_RNG]};
+		end
 	end
 end
 
-always @(*)
+assign csr_read_data = latest_store_tlb_lookup;
+
+assign dtlb_miss = (kernel_mode_reg == `LM32_USER_MODE) && (load_q_m || store_q_m) && ~(dtlb_data_valid);
+
+always @(posedge clk_i `CFG_RESET_SENSITIVITY)
 begin
-	csr_read_data <= latest_store_tlb_lookup;
+	if (rst_i == `TRUE)
+		dtlb_miss_int <= 0;
+	else
+	begin
+		if (dtlb_miss)
+			dtlb_miss_int <= 1;
+		else
+			dtlb_miss_int <= 0;
+	end
+end
+
+always @(posedge clk_i `CFG_RESET_SENSITIVITY)
+begin
+	if (rst_i == `TRUE)
+		dtlb_miss_q <= 0;
+	else
+	begin
+		if (dtlb_miss_int)
+			dtlb_miss_q <= 1;
+		else
+			dtlb_miss_q <= 0;
+	end
 end
 
 always @(posedge clk_i `CFG_RESET_SENSITIVITY)
@@ -716,6 +756,7 @@ begin
 		dtlb_flush_set <= {addr_dtlb_index_width{1'b1}};
 		dtlb_state <= `LM32_TLB_STATE_FLUSH;
 		dtlb_updating <= 0;
+		dtlb_miss_addr <= `LM32_WORD_WIDTH'd0;
 	end
 	else
 	begin
@@ -725,19 +766,19 @@ begin
 		begin
 			dtlb_updating <= 0;
 			dtlb_flushing <= 0;
-			if ((dtlb_miss == `TRUE) && (kernel_mode_reg == `LM32_KERNEL_MODE))
+			if (dtlb_miss == `TRUE)
 			begin
-				// FIXME : We need to generate an exception
+//				dtlb_flushing <= 0;
+//				dtlb_flush_set <= address_m[addr_dtlb_index_width-1:0];
 				dtlb_miss_addr <= address_m;
-				dtlb_updating <= 0;
-				$display("ERROR : DTLB MISS on addr 0x%08X", address_m);
+				$display("ERROR : DTLB MISS on addr 0x%08X at time %t", address_m, $time);
 			end
-			else if (csr_write_enable && csr_write_data[0])
+			if (csr_write_enable && csr_write_data[0])
 			begin
 				// FIXME : test for kernel mode is removed for testing purposes ONLY
 				if (csr == `LM32_CSR_TLB_CTRL /*&& (kernel_mode_reg == `LM32_KERNEL_MODE)*/)
 				begin
-					case (csr_write_data[4:1])
+					case (csr_write_data[5:1])
 					`LM32_DTLB_CTRL_FLUSH:
 					begin
 						dtlb_flushing <= 1;
@@ -750,17 +791,13 @@ begin
 					begin
 						dtlb_updating <= 1;
 					end
-					// FIXME : This is for testing purposes ONLY
-					`LM32_TLB_CTRL_SWITCH_TO_KERNEL_MODE:
-					begin
-						kernel_mode_reg <= `LM32_KERNEL_MODE;
-						dtlb_updating <= 0;
-					end
 
-					`LM32_TLB_CTRL_SWITCH_TO_USER_MODE:
+					`LM32_TLB_CTRL_INVALIDATE_ENTRY:
 					begin
-						kernel_mode_reg <= `LM32_USER_MODE;
+						dtlb_flushing <= 1;
+						dtlb_flush_set <= dtlb_update_vaddr_csr_reg[`LM32_DTLB_IDX_RNG];
 						dtlb_updating <= 0;
+						dtlb_state <= `LM32_TLB_STATE_CHECK;
 					end
 
 					endcase
@@ -777,6 +814,23 @@ begin
 		end
 
 		endcase
+	end
+end
+
+assign switch_to_kernel_mode = (/*(kernel_mode_reg == `LM32_KERNEL_MODE) && */csr_write_enable && (csr == `LM32_CSR_TLB_CTRL) && csr_write_data[5:0] == {`LM32_TLB_CTRL_SWITCH_TO_KERNEL_MODE, 1'b1});
+assign switch_to_user_mode = (/*(kernel_mode_reg == `LM32_KERNEL_MODE) && */csr_write_enable && (csr == `LM32_CSR_TLB_CTRL) && csr_write_data[5:0] == {`LM32_TLB_CTRL_SWITCH_TO_USER_MODE, 1'b1});
+
+
+always @(posedge clk_i `CFG_RESET_SENSITIVITY)
+begin
+	if (rst_i == `TRUE)
+		kernel_mode_reg <= `LM32_KERNEL_MODE;
+	else
+	begin
+		if (/*exception_x || */switch_to_kernel_mode)
+			kernel_mode_reg <= `LM32_KERNEL_MODE;
+		else if (/*eret_q_x || */switch_to_user_mode)
+			kernel_mode_reg <= `LM32_USER_MODE;
 	end
 end
 

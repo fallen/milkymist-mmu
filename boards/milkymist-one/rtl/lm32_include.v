@@ -96,6 +96,8 @@
 `define CFG_WATCHPOINTS 32'h4
 `define CFG_EXTERNAL_BREAK_ENABLED
 `define CFG_GDBSTUB_ENABLED
+//`define CFG_RANDOM_WISHBONE_LATENCY
+//`define CFG_VERBOSE_DISPLAY_ENABLED
 
 // Enable MMU
 `define CFG_MMU_ENABLED
@@ -304,16 +306,17 @@
 `define LM32_WPC_C_READ_WRITE           2'b11
 
 // Exception IDs
-`define LM32_EID_WIDTH                  3
+`define LM32_EID_WIDTH                  4
 `define LM32_EID_RNG                    (`LM32_EID_WIDTH-1):0
-`define LM32_EID_RESET                  3'h0
-`define LM32_EID_BREAKPOINT             3'd1
-`define LM32_EID_INST_BUS_ERROR         3'h2
-`define LM32_EID_WATCHPOINT             3'd3
-`define LM32_EID_DATA_BUS_ERROR         3'h4
-`define LM32_EID_DIVIDE_BY_ZERO         3'h5
-`define LM32_EID_INTERRUPT              3'h6
-`define LM32_EID_SCALL                  3'h7
+`define LM32_EID_RESET                  `LM32_EID_WIDTH'h0
+`define LM32_EID_BREAKPOINT             `LM32_EID_WIDTH'd1
+`define LM32_EID_INST_BUS_ERROR         `LM32_EID_WIDTH'h2
+`define LM32_EID_WATCHPOINT             `LM32_EID_WIDTH'd3
+`define LM32_EID_DATA_BUS_ERROR         `LM32_EID_WIDTH'h4
+`define LM32_EID_DIVIDE_BY_ZERO         `LM32_EID_WIDTH'h5
+`define LM32_EID_INTERRUPT              `LM32_EID_WIDTH'h6
+`define LM32_EID_SCALL                  `LM32_EID_WIDTH'h7
+`define LM32_EID_DTLB_MISS              `LM32_EID_WIDTH'h8
 
 // Pipeline result selection mux controls
 
