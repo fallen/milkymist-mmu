@@ -648,7 +648,7 @@ static void readstr(char *s, int size)
 				}
 				break;
 			case '\e':
-				vga_set_console(!vga_get_console());
+//				vga_set_console(!vga_get_console());
 				break;
 			case 0x07:
 				break;
@@ -685,7 +685,6 @@ static void ethreset()
 int main(int i, char **c)
 {
 	char buffer[64];
-	unsigned short int k;
 
 	/* lock gdbstub ROM */
 	CSR_DBG_CTRL = DBG_CTRL_GDB_ROM_LOCK;
@@ -696,9 +695,11 @@ int main(int i, char **c)
 	CSR_GPIO_OUT = GPIO_LED1;
 	rescue = !((unsigned int)main > FLASH_OFFSET_REGULAR_BIOS);
 
-	irq_setmask(0);
-	irq_enable(1);
 	uart_init();
+	uart_force_sync(1);
+	irq_setmask(0);
+	irq_enable(0);
+
 	putsnonl(banner);
 	crcbios();
 	brd_init();
@@ -706,20 +707,11 @@ int main(int i, char **c)
 	if(rescue)
 		printf("I: Booting in rescue mode\n");
 
-	boot_sequence();
-
-	uart_force_sync(1);
-	irq_enable(0);
-
-	for (k = 0 ; k < 65000 ; ++k)
-		asm volatile("nop");
-
-	dtlb_load_test();
-
+	uart_set_polling_mode(1);
 	while(1) {
-		if (++k == 0)
-			printf(".");
-		asm volatile("nop");
+		putsnonl("\e[1mBIOS>\e[0m ");
+		readstr(buffer, 64);
+		do_command(buffer);
 	}
 
 	return 0;
