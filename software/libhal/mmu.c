@@ -32,3 +32,13 @@ inline void mmu_dtlb_map(unsigned int vpfn, unsigned int pfn)
 			 "wcsr tlbctrl, r11":::"r11");
 
 }
+
+inline void mmu_dtlb_invalidate(unsigned int vaddr)
+{
+	asm volatile ("ori %0, %0, 1\n\t"
+		      "wcsr tlbvaddr, %0"::"r"(vaddr):);
+
+	asm volatile ("xor r11, r11, r11\n\t"
+		      "ori r11, r11, 0x21\n\t"
+		      "wcsr tlbctrl, r11":::"r11");
+}

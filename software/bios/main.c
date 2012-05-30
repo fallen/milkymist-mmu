@@ -422,7 +422,8 @@ static void help()
 	puts("version    - display version");
 	puts("reboot     - system reset");
 	puts("reconf     - reload FPGA configuration");
-	puts("dtlbtest   - runs DTLB MMU test");
+	puts("dtlbtest   - runs DTLB MMU load store tests");
+	puts("detest     - runs DTLB MMU exception handling tests");
 }
 
 static char *get_token(char **str)
@@ -538,6 +539,7 @@ static void do_command(char *c)
 	else if(strcmp(token, "rcsr") == 0) rcsr(get_token(&c));
 	else if(strcmp(token, "wcsr") == 0) wcsr(get_token(&c), get_token(&c));
 	else if(strcmp(token, "dtlbtest") == 0) dtlbtest();
+	else if(strcmp(token, "detest") == 0) dtlb_exception_handling_tests();
 
 	else if(strcmp(token, "") != 0)
 		printf("Command not found\n");

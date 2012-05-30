@@ -1,7 +1,7 @@
 MMDIR=../..
 include $(MMDIR)/software/include.mak
 
-OBJECTS=crt0.o isr.o main.o unlzma.o boot.o boot-helper.o splash.o dtlb_load_test.o
+OBJECTS=crt0.o isr.o main.o unlzma.o boot.o boot-helper.o splash.o dtlb_load_test.o dtlb_exception_handling_tests.o dtlb_miss_handler.o
 SEGMENTS=-j .text -j .data -j .rodata
 LIBS=$(MMDIR)/software/libhpdmc/libhpdmc.a $(MMDIR)/software/libbase/libbase-light.a \
      $(MMDIR)/software/libhal/libhal.a     $(MMDIR)/software/libnet/libnet.a
