@@ -22,7 +22,7 @@
 void dtlb_exception_handling_tests() {
 
 	register unsigned int stack, addr;
-	unsigned int data;
+	volatile unsigned int data;
 	int ret;
 
 	asm volatile("mv %0, sp" : "=r"(stack) :: );
@@ -45,6 +45,7 @@ void dtlb_exception_handling_tests() {
 	printf("=> Writing %d to physical address 0x%08X\n", data, addr);
 	*(unsigned int *)addr = data;
 
+	data = 0; // clears data to make sure we are not reading back previous value cached in a register or so
 	printf("=> Activating the MMU and reading form virtual address 0x%08X\n", addr);
 	data = read_word_with_mmu_enabled(addr);
 	printf("\n<= Reading %d from virtual address 0x%08X\n\n", data, addr);
@@ -56,6 +57,7 @@ void dtlb_exception_handling_tests() {
 	printf("=> Writing %d to physical address 0x%08X\n", data, addr);
 	*(unsigned int *)addr = data;
 
+	data = 0; // clears data to make sure we are not reading back previous value cached in a register or so
 	printf("=> Activating the MMU and reading form virtual address 0x%08X\n", addr);
 	data = read_word_with_mmu_enabled(addr);
 	printf("\n<= Reading %d from virtual address 0x%08X\n\n", data, addr);
@@ -71,6 +73,7 @@ void dtlb_exception_handling_tests() {
 	printf("=> Writting %d to physical address 0x%08X\n", data, addr+0x1000);
 	*(unsigned int *)(addr + 0x1000) = data;
 
+	data = 0; // clears data to make sure we are not reading back previous value cached in a register or so
 	printf("=> Activating the MMU and reading form virtual address 0x%08X\n", addr);
 	data = read_word_with_mmu_enabled(addr);
 	printf("\n<= Reading %d from virtual address 0x%08X\n\n", data, addr);
