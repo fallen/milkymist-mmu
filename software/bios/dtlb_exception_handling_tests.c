@@ -1,106 +1,28 @@
-#include <hal/mmu.h>
-
-#define PAGE_SIZE	(4096)
-
-#define MAX_MMU_SLOTS	10
-#define NO_EMPTY_SLOT	(MAX_MMU_SLOTS + 1)
-
-#define A_BAD_ADDR	(0)
-
-#define NULL (0)
-
-#define get_pfn(x)	(x & ~(PAGE_SIZE - 1))
-
-struct mmu_mapping {
-
-	unsigned int vaddr;
-	unsigned int paddr;
-	char valid;
-
-} mappings[10];
-
 /*
- * This records in a global structure all MMU mappings
- * If such a mapping already exists the function returns immediately.
- * If such a mapping does not exist yet, vaddr is mapped to paddr and 
- * the mapping is recorded in the mappings[] global structure array in
- * an empty slot.
- * If there is no empty slot anymore then we fail
+ * Milkymist SoC (Software)
+ * Copyright (C) 2012 Yann Sionneau <yann.sionneau@gmail.com>
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, version 3 of the License.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-unsigned int mmu_map(unsigned int vaddr, unsigned int paddr) {
-	int i;
-	int empty_slot = NO_EMPTY_SLOT;
-	vaddr = get_pfn(vaddr);
-
-	for (i = 0 ; i < MAX_MMU_SLOTS ; ++i)
-	{
-		if (!mappings[i].valid)
-			empty_slot = i;
-		if (vaddr == mappings[i].vaddr && paddr == mappings[i].paddr)
-			return 1;
-	}
-	
-	if (empty_slot == NO_EMPTY_SLOT)
-		return empty_slot;
-
-	mappings[empty_slot].vaddr = vaddr;
-	mappings[empty_slot].paddr = paddr;
-	mappings[empty_slot].valid = 1;
-	mmu_dtlb_map(vaddr, paddr);
-
-	return 1;
-}
-
-unsigned int get_mmu_mapping_for(unsigned int vaddr) {
-	int i;
-	vaddr = get_pfn(vaddr);
-
-	for (i = 0 ; i < MAX_MMU_SLOTS ; ++i)
-		if (mappings[i].valid && vaddr == mappings[i].vaddr)
-			return mappings[i].paddr;
-
-	return A_BAD_ADDR;
-}
-
-unsigned int invalidate_mmu_mapping(unsigned int vaddr) {
-	int i;
-	vaddr = get_pfn(vaddr);
-	for (i = 0 ; i < MAX_MMU_SLOTS ; ++i)
-	{
-		if (mappings[i].valid && vaddr == mappings[i].vaddr) {
-			mmu_dtlb_invalidate(vaddr);
-			mappings[i].valid = 0;
-			return 1;
-		}
-	}
-	return 0;
-}
-
-static void panic(void) {
-	puts("PANIC !");
-	while(1)
-		asm volatile("nop");
-}
-
-static void check_for_error(int ret) {
-	if (ret)
-		return;
-
-	if (ret == NO_EMPTY_SLOT) {
-		puts("No empty slot in MMU mappings structure anymore");
-		panic();
-	}
-
-	if ( !ret ) {
-		puts("Unknown issue");
-		panic();
-	}
-}
+#include <hal/mmu.h>
+#include <base/mmu.h>
+#include <base/stdio.h>
 
 void dtlb_exception_handling_tests() {
 
-	register unsigned int stack, addr, data;
+	register unsigned int stack, addr;
+	unsigned int data;
 	int ret;
 
 	asm volatile("mv %0, sp" : "=r"(stack) :: );
@@ -113,48 +35,44 @@ void dtlb_exception_handling_tests() {
 
 	printf("stack == 0x%08X\n", stack);
 
-	addr = 0x44002342; // Random address
-	*(unsigned int *)addr = 42;
-//	mmu_map(addr, addr);
+	addr = 0x44004004;
 
-	printf("Address 0x%08X mapped to itself, value : ", addr);
+	printf("\n=> Mapping 0x%08X to 0x%08X\n", addr, addr);
+	ret = mmu_map(addr, addr);
+	check_for_error(ret);
 
-	asm volatile(
-		"xor r11, r11, r11\n\t"
-		"ori r11, r11, 0x11\n\t"
-		"wcsr tlbctrl, r11\n\t" // this activates the mmu
-		"xor r0, r0, r0\n\t"
-		"xor r11, r11, r11\n\t"
-		"or r11, r11, %1\n\t"
-		"lw  %0, (r11+0)\n\t"
-		"xor r11, r11, r11\n\t"
-		"ori r11, r11, 0x9\n\t"
-		"wcsr tlbctrl, r11\n\t" // this disactivates the mmu
-		"xor r0, r0, r0" : "=&r"(data) : "r"(addr) : "r11"
-	);
+	data = 42;
+	printf("=> Writing %d to physical address 0x%08X\n", data, addr);
+	*(unsigned int *)addr = data;
 
-	printf("%d\n", data);
+	printf("=> Activating the MMU and reading form virtual address 0x%08X\n", addr);
+	data = read_word_with_mmu_enabled(addr);
+	printf("\n<= Reading %d from virtual address 0x%08X\n\n", data, addr);
 
-	invalidate_mmu_mapping(addr);
+	printf("=> Invalidating the mapping of virtual address 0x%08X in the TLB\n", addr);
+	mmu_dtlb_invalidate(addr);
 
-	printf("DTLB has just been invalidated, next access to 0x%08X should trigger a DTLB exception\n", addr);
+	data = 43;
+	printf("=> Writing %d to physical address 0x%08X\n", data, addr);
+	*(unsigned int *)addr = data;
 
-	printf("Address 0x%08X not mapped, value : ", addr);
+	printf("=> Activating the MMU and reading form virtual address 0x%08X\n", addr);
+	data = read_word_with_mmu_enabled(addr);
+	printf("\n<= Reading %d from virtual address 0x%08X\n\n", data, addr);
 
-	asm volatile(
-		"xor r11, r11, r11\n\t"
-		"ori r11, r11, 0x11\n\t"
-		"wcsr tlbctrl, r11\n\t" // this activates the mmu
-		"xor r0, r0, r0\n\t"
-		"xor r11, r11, r11\n\t"
-		"or r11, r11, %1\n\t"
-		"lw  %0, (r11+0)\n\t"
-		"xor r11, r11, r11\n\t"
-		"ori r11, r11, 0x9\n\t"
-		"wcsr tlbctrl, r11\n\t" // this disactivates the mmu
-		"xor r0, r0, r0" : "=&r"(data) : "r"(addr) : "r11"
-	);
+	printf("=> Mapping 0x%08X to 0%08X\n", addr, addr+0x1000);
+	ret = mmu_map(addr, addr+0x1000); // Map to something else
+	check_for_error(ret);
 
-	printf("%d\n", data);
+	printf("=> Invalidating the mapping of virtual address 0x%08X in the TLB\n", addr);
+	mmu_dtlb_invalidate(addr); // AND invalidate the mapping
+
+	data = 44;
+	printf("=> Writting %d to physical address 0x%08X\n", data, addr+0x1000);
+	*(unsigned int *)(addr + 0x1000) = data;
+
+	printf("=> Activating the MMU and reading form virtual address 0x%08X\n", addr);
+	data = read_word_with_mmu_enabled(addr);
+	printf("\n<= Reading %d from virtual address 0x%08X\n\n", data, addr);
 
 }

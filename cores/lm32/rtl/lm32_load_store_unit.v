@@ -429,6 +429,7 @@ lm32_dcache #(
     .csr_write_enable	    (csr_write_enable),
     .exception_x	    (exception_x),
     .eret_q_x		    (eret_q_x),
+    .exception_m	    (exception_m),
     // ----- Outputs -----
     .stall_request          (dcache_stall_request),
     .restart_request        (dcache_restart_request),
@@ -436,8 +437,7 @@ lm32_dcache #(
     .refill_address         (dcache_refill_address),
     .refilling              (dcache_refilling),
     .load_data              (dcache_data_m),
-//    .dtlb_miss		    (dtlb_miss),
-    .dtlb_miss_q	    (dtlb_miss),
+    .dtlb_miss_int	    (dtlb_miss),
     .kernel_mode	    (kernel_mode),
     .pa			    (physical_address),
     .csr_read_data	    (csr_read_data)

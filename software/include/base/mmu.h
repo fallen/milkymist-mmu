@@ -15,29 +15,15 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
+#ifndef __BASE_MMU_H__
+#define __BASE_MMU_H__
+
 #include <hal/mmu.h>
-#include <base/mmu.h>
 
-void dtlb_miss_handler(void)
-{
-	unsigned int vaddr, paddr;
+unsigned int mmu_map(unsigned int vaddr, unsigned int paddr);
+unsigned int get_mmu_mapping_for(unsigned int vaddr);
+unsigned char remove_mmu_mapping_for(unsigned int vaddr);
+void panic(void);
+void check_for_error(int ret);
 
-	// retrieve virtual address which caused the page fault
-	asm volatile("rcsr %0, dtlbma" : "=r"(vaddr) :: );
-
-	/*
-	* check if there is an existing mapping for that virtual address
-	* if yes: refill the DTLB with it
-	* if not: we panic() !
-	*/
-	paddr = get_mmu_mapping_for(vaddr);
-	if (paddr == A_BAD_ADDR)
-	{
-		puts("[TLB miss handler] Unrecoverable page fault !");
-		panic();
-	}
-
-	printf("[TLB miss handler] Refilling DTLB with mapping 0x%08X->0x%08X\n", vaddr, paddr);
-	mmu_dtlb_map(vaddr, paddr);
-
-}
+#endif
