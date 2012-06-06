@@ -749,6 +749,9 @@ begin
 `endif
 `ifdef CFG_IROM_ENABLED
 		     && (irom_select_m == `FALSE)
+`endif
+`ifdef CFG_MMU_ENABLED
+		     && (dtlb_miss == `FALSE)
 `endif			
                     )
             begin
