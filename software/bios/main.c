@@ -422,6 +422,14 @@ static void help()
 	puts("version    - display version");
 	puts("reboot     - system reset");
 	puts("reconf     - reload FPGA configuration");
+	puts("dmap       - adds a MMU DTLB mapping");
+	puts("dunmap     - removes a MMU DTLB mapping");
+	puts("dtlbi      - invalidates the whole DTLB");
+	puts("dmapi      - invalidates a DTLB mapping");
+	puts("mmu        - activates MMU");
+	puts("nommu      - disactivates MMU");
+	puts("mmuread    - reads from memory with MMU enabled");
+	puts("mmuwrite   - writes to memory with MMU enabled");
 	puts("dtlbtest   - runs DTLB MMU load store tests");
 	puts("detest     - runs DTLB MMU exception handling tests");
 }
@@ -506,6 +514,75 @@ static void dtlbtest(void)
 
 }
 
+void mmuread(char *vaddr_str)
+{
+	unsigned int vaddr, data;
+	char *c;
+
+	vaddr = strtoul(vaddr_str, &c, 0);
+
+	data = read_word_with_mmu_enabled(vaddr);
+
+	printf("0x%08X contains 0x%08X\n", vaddr, data);
+}
+
+void mmuwrite(char *vaddr_str, char * data_str)
+{
+	unsigned int vaddr, data;
+	char *c;
+
+	vaddr = strtoul(vaddr_str, &c, 0);
+	data = strtoul(data_str, &c, 0);
+
+	write_word_with_mmu_enabled(vaddr, data);
+}
+
+void dmap(char *vaddr_str, char *paddr_str)
+{
+	unsigned int vaddr, paddr;
+	char *c;
+
+	vaddr = strtoul(vaddr_str, &c, 0);
+	paddr = strtoul(paddr_str, &c, 0);
+
+	mmu_map(vaddr, paddr);
+}
+
+void dunmap(char *vaddr_str)
+{
+	unsigned int vaddr;
+	char *c;
+
+	vaddr = strtoul(vaddr_str, &c, 0);
+
+	remove_mmu_mapping_for(vaddr);
+}
+
+void dtlbi(void)
+{
+	mmu_dtlb_invalidate();
+}
+
+void dmapi(char *vaddr_str)
+{
+	unsigned int vaddr;
+	char *c;
+
+	vaddr = strtoul(vaddr_str, &c, 0);
+
+	mmu_dtlb_invalidate_line(vaddr);
+}
+
+void activate_mmu(void)
+{
+	enable_dtlb();
+}
+
+void disactivate_mmu(void)
+{
+	disable_dtlb();
+}
+
 static void do_command(char *c)
 {
 	char *token;
@@ -540,7 +617,14 @@ static void do_command(char *c)
 	else if(strcmp(token, "wcsr") == 0) wcsr(get_token(&c), get_token(&c));
 	else if(strcmp(token, "dtlbtest") == 0) dtlbtest();
 	else if(strcmp(token, "detest") == 0) dtlb_exception_handling_tests();
-
+	else if(strcmp(token, "dmap") == 0) dmap(get_token(&c), get_token(&c));
+	else if(strcmp(token, "dunmap") == 0) dunmap(get_token(&c));
+	else if(strcmp(token, "dtlbi") == 0) dtlbi();
+	else if(strcmp(token, "mmu") == 0) activate_mmu();
+	else if(strcmp(token, "nommu") == 0) disactivate_mmu();
+	else if(strcmp(token, "mmuread") == 0) mmuread(get_token(&c));
+	else if(strcmp(token, "mmuwrite") == 0) mmuwrite(get_token(&c), get_token(&c));
+	else if(strcmp(token, "dmapi") == 0) dmapi(get_token(&c));
 	else if(strcmp(token, "") != 0)
 		printf("Command not found\n");
 }

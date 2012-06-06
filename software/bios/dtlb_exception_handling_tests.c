@@ -51,7 +51,7 @@ void dtlb_exception_handling_tests() {
 	printf("\n<= Reading %d from virtual address 0x%08X\n\n", data, addr);
 
 	printf("=> Invalidating the mapping of virtual address 0x%08X in the TLB\n", addr);
-	mmu_dtlb_invalidate(addr);
+	mmu_dtlb_invalidate_line(addr);
 
 	data = 43;
 	printf("=> Writing %d to physical address 0x%08X\n", data, addr);
@@ -67,7 +67,7 @@ void dtlb_exception_handling_tests() {
 	check_for_error(ret);
 
 	printf("=> Invalidating the mapping of virtual address 0x%08X in the TLB\n", addr);
-	mmu_dtlb_invalidate(addr); // AND invalidate the mapping
+	mmu_dtlb_invalidate_line(addr); // AND invalidate the mapping
 
 	data = 44;
 	printf("=> Writting %d to physical address 0x%08X\n", data, addr+0x1000);

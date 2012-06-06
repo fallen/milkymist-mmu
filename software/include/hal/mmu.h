@@ -50,6 +50,7 @@ struct mmu_mapping {
 
 void mmu_dtlb_map(unsigned int vpfn, unsigned int pfn);
 unsigned int read_word_with_mmu_enabled(unsigned int vaddr);
-void mmu_dtlb_invalidate(unsigned int vaddr);
+void mmu_dtlb_invalidate_line(unsigned int vaddr);
+void mmu_dtlb_invalidate(void);
 
 #endif
