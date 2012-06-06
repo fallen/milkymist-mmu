@@ -162,7 +162,7 @@ unsigned int read_word_with_mmu_enabled(unsigned int vaddr)
 		"xor r0, r0, r0\n\t"
 		"xor r11, r11, r11\n\t"
 		"or r11, r11, %1\n\t"
-		"lw  %0, (r11+0)\n\t" // Reads from virtual address "addr"
+		"lw  %0, (r11+0)\n\t" // Reads from virtual address "vaddr"
 		"xor r11, r11, r11\n\t"
 		"ori r11, r11, 0x9\n\t"
 		"wcsr tlbctrl, r11\n\t" // Disactivates the MMU
@@ -170,4 +170,19 @@ unsigned int read_word_with_mmu_enabled(unsigned int vaddr)
 	);
 
 	return data;
+}
+
+unsigned int write_word_with_mmu_enabled(register unsigned int vaddr, register unsigned int data)
+{
+	asm volatile(
+		"xor r11, r11, r11\n\t"
+		"ori r11, r11, 0x11\n\t"
+		"wcsr tlbctrl, r11\n\t" // Activates the MMU
+		"xor r0, r0, r0\n\t"
+		"sw  (%0 + 0), %1\n\t" // Writes "data" to virtual address "vaddr"
+		"xor r11, r11, r11\n\t"
+		"ori r11, r11, 0x9\n\t"
+		"wcsr tlbctrl, r11\n\t" // Disactivates the MMU
+		"xor r0, r0, r0\n\t" :: "r"(vaddr), "r"(data) : "r11"
+	);
 }
