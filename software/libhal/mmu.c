@@ -19,8 +19,8 @@
 #include <base/mmu.h>
 
 #define DTLB_CTRL_FLUSH_CMD	(0x3)
-#define DTLB_CTRL_DISABLE_CMD	(0x5)
-#define DTLB_CTRL_ENABLE_CMD	(0x9)
+#define DTLB_CTRL_DISABLE_CMD	(0x9)
+#define DTLB_CTRL_ENABLE_CMD	(0x11)
 
 /* @vpfn : virtual page frame number
  * @pfn  : physical page frame number
