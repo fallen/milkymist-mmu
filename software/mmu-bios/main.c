@@ -1,5 +1,5 @@
 #include "main.h"
-
+#include <base/mmu.h>
 
 void uart_write(char c)
 {
@@ -72,11 +72,48 @@ int printf(const char *fmt, ...)
 	return len;
 }
 
+void f(void) {
+	CSR_UART_RXTX = '@';
+	asm volatile("bi f" ::: ); // We intinitely loop to f()
+	asm volatile("xor r0, r0, r0\n\t"
+		     "xor r0, r0, r0" ::: );
+}
+
+void itlbtest(void) {
+	register unsigned int stack, f_addr;
+	unsigned int *p;
+	unsigned int *pdest;
+
+	asm volatile("mv %0, sp" : "=r"(stack) :: );
+	printf("stack == 0x%08X\n", stack);
+
+	printf("f() is located at 0x%p\n", f);
+
+	f_addr = 0x44004000;
+	printf("Mapping f() into virtual memory at 0x%08X [physical == 0x%08X]\n", f_addr, f_addr+0x1000);
+
+	mmu_map(f_addr, f_addr + 0x1000, ITLB_MAPPING | MAPPING_CAN_READ);
+	puts("Mapping DONE");
+
+	// We copy f's code to 0x44005000
+	for (p = f, pdest = 0x44005000 ; p < f + 0x1000 ; p++, pdest++)
+		*pdest = *p;
+	puts("Copy DONE");
+
+	asm volatile("wcsr DCC, r0");
+	asm volatile("wcsr ICC, r0");
+	puts("Instruction and Data caches have been invalidated");
+
+	call_function_with_itlb_enabled(f_addr);
+	puts("Call DONE");
+}
+
 int main(int argc, char **argv)
 {
 	asm volatile("wcsr IE, r0");
 //	dtlb_load_test();
-	dtlb_exception_handling_tests();
+//	dtlb_exception_handling_tests();
+	itlbtest();
 
 	while (1)
 	{
