@@ -59,7 +59,7 @@ struct mmu_mapping mappings[MAX_MMU_SLOTS];
  * If there is no empty slot anymore then we fail
  */
 
-unsigned int mmu_map(unsigned int vaddr, unsigned int paddr) {
+unsigned int mmu_map(unsigned int vaddr, unsigned int paddr, char metadata) {
 	int i;
 	register unsigned int stack;
 	int empty_slot = NO_EMPTY_SLOT;
@@ -71,9 +71,9 @@ unsigned int mmu_map(unsigned int vaddr, unsigned int paddr) {
 
 	for (i = 0 ; i < MAX_MMU_SLOTS ; ++i)
 	{
-		if (!mappings[i].valid)
+		if (!(mappings[i].metadata & MAPPING_IS_VALID))
 			empty_slot = i;
-		if ((vaddr == mappings[i].vaddr) && (paddr == mappings[i].paddr) && mappings[i].valid)
+		if ((vaddr == mappings[i].vaddr) && (paddr == mappings[i].paddr) && (mappings[i].metadata & MAPPING_IS_VALID))
 		{
 			puts("Already mapped !");
 			return 1;
@@ -88,8 +88,14 @@ unsigned int mmu_map(unsigned int vaddr, unsigned int paddr) {
 
 	mappings[empty_slot].vaddr = vaddr;
 	mappings[empty_slot].paddr = paddr;
-	mappings[empty_slot].valid = 1;
-	mmu_dtlb_map(vaddr, paddr);
+	mappings[empty_slot].metadata = (metadata | MAPPING_IS_VALID);
+
+	if (metadata & ITLB_MAPPING)
+		mmu_itlb_map(vaddr, paddr);
+
+	if (metadata & DTLB_MAPPING)
+		mmu_dtlb_map(vaddr, paddr);
+
 	printf("mapping 0x%08X->0x%08X in slot %d [0x%p]\n", vaddr, paddr, empty_slot, &mappings[empty_slot]);
 
 	return 1;
@@ -100,7 +106,7 @@ unsigned int get_mmu_mapping_for(unsigned int vaddr) {
 	vaddr = get_pfn(vaddr);
 
 	for (i = 0 ; i < MAX_MMU_SLOTS ; ++i)
-		if (mappings[i].valid && (vaddr == mappings[i].vaddr))
+		if ((mappings[i].metadata & MAPPING_IS_VALID) && (vaddr == mappings[i].vaddr))
 			return mappings[i].paddr;
 
 	return A_BAD_ADDR;
@@ -112,10 +118,10 @@ unsigned char remove_mmu_mapping_for(unsigned int vaddr) {
 
 	for (i = 0 ; i < MAX_MMU_SLOTS ; ++i)
 	{
-		if (mappings[i].valid && (vaddr == mappings[i].vaddr))
+		if ((mappings[i].metadata & MAPPING_IS_VALID) && (vaddr == mappings[i].vaddr))
 		{
 			mmu_dtlb_invalidate(vaddr);
-			mappings[i].valid = 0;
+			mappings[i].metadata &= ~MAPPING_IS_VALID;
 			return 1;
 		}
 	}
@@ -185,4 +191,29 @@ unsigned int write_word_with_mmu_enabled(register unsigned int vaddr, register u
 		"wcsr tlbctrl, r11\n\t" // Disactivates the MMU
 		"xor r0, r0, r0\n\t" :: "r"(vaddr), "r"(data) : "r11"
 	);
+}
+
+void call_function_with_itlb_enabled(void (*f)(void))
+{
+	asm volatile(
+		"xor r11, r11, r11\n\t"
+		"ori r11, r11, 0x10\n\t"
+		"wcsr tlbctrl, r11\n\t" // Activates ITLB
+		"call %0\n\t"
+		"xor r11, r11, r11\n\t"
+		"ori r11, r11, 0x8\n\t"
+		"wcsr tlbctrl, r11" :: "r"(f) : "r11" // Disactivates ITLB
+	);
+}
+
+inline void mmu_itlb_map(unsigned int vpfn, unsigned int pfn)
+{
+
+	asm volatile	("wcsr tlbvaddr, %0" :: "r"(vpfn) : );
+
+	asm volatile	("wcsr tlbpaddr, %0" :: "r"(pfn) : );
+
+	asm volatile	("xor r11, r11, r11\n\t"
+			 "ori r11, r11, 0x4\n\t"
+			 "wcsr tlbctrl, r11" ::: "r11");
 }

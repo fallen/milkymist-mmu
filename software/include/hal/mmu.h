@@ -25,12 +25,25 @@
 #define NULL 		(0)
 #define get_pfn(x)	(x & ~(PAGE_SIZE - 1))
 
+#define ITLB_MAPPING		(1)
+#define DTLB_MAPPING		(1 << 1)
+#define MAPPING_CAN_READ	(1 << 2)
+#define MAPPING_CAN_WRITE	(1 << 3)
+#define MAPPING_COPY_ON_WRITE	(1 << 4)
+#define MAPPING_IS_VALID	(1 << 5)
+
 struct mmu_mapping {
 
 	unsigned int vaddr;
 	unsigned int paddr;
-	char valid;
-
+	char metadata;
+	// x  x  x  x    x  x  x  x
+	//       |  |    |  |  |  |-> ITLB mapping
+	//       |  |    |  |  |-> DTLB mapping
+	//       |  |    |  |->  CAN_READ
+	//       |  |    |-> CAN_WRITE
+	//       |  |-> COPY_ON_WRITE: Not Implemented Yet
+	//       |-> MAPPING_IS_VALID
 };
 
 #define enable_dtlb() do { \
