@@ -62,6 +62,22 @@ struct mmu_mapping {
 			 "xor r0, r0, r0":::"r11"); \
 } while(0);
 
+#define enable_itlb() do { \
+	asm volatile	("xor r11, r11, r11\n\t" \
+			 "ori r11, r11, 0x10\n\t" \
+			 "wcsr tlbctrl, r11\n\t" \
+			 "xor r0, r0, r0":::"r11"); \
+} while(0);
+
+#define disable_itlb() do { \
+	asm volatile	("xor r11, r11, r11\n\t" \
+			 "ori r11, r11, 0x8\n\t" \
+			 "wcsr tlbctrl, r11\n\t" \
+			 "xor r0, r0, r0\n\t" \
+			 "xor r0, r0, r0\n\t" \
+			 "xor r0, r0, r0":::"r11"); \
+} while(0);
+
 void mmu_dtlb_map(unsigned int vpfn, unsigned int pfn);
 
 #endif

@@ -47,6 +47,16 @@ inline void mmu_dtlb_invalidate(unsigned int vaddr)
 		      "wcsr tlbctrl, r11":::"r11");
 }
 
+inline void mmu_itlb_invalidate(unsigned int vaddr)
+{
+	asm volatile ("ori %0, %0, 0\n\t"
+		      "wcsr tlbvaddr, %0"::"r"(vaddr):);
+
+	asm volatile ("xor r11, r11, r11\n\t"
+		      "ori r11, r11, 0x20\n\t"
+		      "wcsr tlbctrl, r11":::"r11");
+}
+
 struct mmu_mapping mappings[MAX_MMU_SLOTS];
 
 
@@ -102,7 +112,7 @@ unsigned int mmu_map(unsigned int vaddr, unsigned int paddr, char metadata) {
 }
 
 unsigned int get_mmu_mapping_for(unsigned int vaddr) {
-	int i;
+	unsigned int i;
 	vaddr = get_pfn(vaddr);
 
 	for (i = 0 ; i < MAX_MMU_SLOTS ; ++i)
@@ -110,6 +120,28 @@ unsigned int get_mmu_mapping_for(unsigned int vaddr) {
 			return mappings[i].paddr;
 
 	return A_BAD_ADDR;
+}
+
+unsigned char is_dtlb_mapping(unsigned int vaddr) {
+	unsigned int i;
+	vaddr = get_pfn(vaddr);
+
+	for (i = 0 ; i < MAX_MMU_SLOTS ; ++i)
+		if ((mappings[i].vaddr == vaddr) && (mappings[i].metadata & (MAPPING_IS_VALID)) && (mappings[i].metadata & (DTLB_MAPPING)))
+			return 1;
+
+	return 0;
+}
+
+unsigned char is_itlb_mapping(unsigned int vaddr) {
+	unsigned int i;
+	vaddr = get_pfn(vaddr);
+
+	for (i = 0 ; i < MAX_MMU_SLOTS ; ++i)
+		if ((mappings[i].vaddr == vaddr) && (mappings[i].metadata & (MAPPING_IS_VALID)) && (mappings[i].metadata & (ITLB_MAPPING)))
+			return 1;
+
+	return 0;
 }
 
 unsigned char remove_mmu_mapping_for(unsigned int vaddr) {
@@ -195,6 +227,9 @@ unsigned int write_word_with_mmu_enabled(register unsigned int vaddr, register u
 
 void call_function_with_itlb_enabled(void (*f)(void))
 {
+	register unsigned int stack;
+	asm volatile("mv %0, sp" : "=r"(stack) :: );
+	printf("call stack == 0x%08x\n", stack);
 	asm volatile(
 		"xor r11, r11, r11\n\t"
 		"ori r11, r11, 0x10\n\t"

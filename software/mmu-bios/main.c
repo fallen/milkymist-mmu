@@ -1,6 +1,8 @@
 #include "main.h"
 #include <base/mmu.h>
 
+extern void call_function_with_itlb_enabled(void (*f)(void));
+
 void uart_write(char c)
 {
 	unsigned int oldmask;
@@ -74,7 +76,7 @@ int printf(const char *fmt, ...)
 
 void f(void) {
 	CSR_UART_RXTX = '@';
-	asm volatile("bi f" ::: ); // We intinitely loop to f()
+//	asm volatile("bi f" ::: ); // We intinitely loop to f()
 	asm volatile("xor r0, r0, r0\n\t"
 		     "xor r0, r0, r0" ::: );
 }
@@ -92,8 +94,14 @@ void itlbtest(void) {
 	f_addr = 0x44004000;
 	printf("Mapping f() into virtual memory at 0x%08X [physical == 0x%08X]\n", f_addr, f_addr+0x1000);
 
+	mmu_map(0x44003000, 0x44003000, DTLB_MAPPING | MAPPING_CAN_READ | MAPPING_CAN_WRITE);
+	mmu_map(stack, stack, DTLB_MAPPING | MAPPING_CAN_READ | MAPPING_CAN_WRITE);
 	mmu_map(f_addr, f_addr + 0x1000, ITLB_MAPPING | MAPPING_CAN_READ);
+	mmu_map(itlbtest, itlbtest, ITLB_MAPPING | MAPPING_CAN_READ);
+	mmu_map(call_function_with_itlb_enabled, call_function_with_itlb_enabled, ITLB_MAPPING | MAPPING_CAN_READ);
 	puts("Mapping DONE");
+
+	mmu_itlb_invalidate(f_addr);
 
 	// We copy f's code to 0x44005000
 	for (p = f, pdest = 0x44005000 ; p < f + 0x1000 ; p++, pdest++)
@@ -105,7 +113,11 @@ void itlbtest(void) {
 	puts("Instruction and Data caches have been invalidated");
 
 	call_function_with_itlb_enabled(f_addr);
+	disable_dtlb();
+	disable_itlb();
 	puts("Call DONE");
+	while(1)
+		asm volatile("xor r0, r0, r0");
 }
 
 int main(int argc, char **argv)

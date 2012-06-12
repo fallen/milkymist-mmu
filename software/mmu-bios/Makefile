@@ -1,7 +1,7 @@
 MMDIR=../..
 include $(MMDIR)/software/include.mak
 
-OBJECTS=crt0.o main.o dtlb_load_test.o mmu.o isr.o vsnprintf-nofloat.o dtlb_miss_handler.o dtlb_exception_handling_tests.o
+OBJECTS=crt0.o main.o dtlb_load_test.o mmu.o isr.o vsnprintf-nofloat.o tlb_miss_handler.o dtlb_exception_handling_tests.o
 SEGMENTS=-j .text -j .data -j .rodata
 
 all: bios.bin
