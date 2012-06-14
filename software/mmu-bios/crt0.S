@@ -122,9 +122,10 @@ _dtlb_miss_exception_handler:
 _itlb_miss_exception_handler:
 	sw	(sp+0), ra
 	calli	.save_all
+	rcsr	r1, itlbma /* get virtual address which caused the page fault */
+	mv 	ea, r1 /* when returning from exception we branch back to that virtual address */
 	calli	itlb_miss_handler
 	bi	.restore_all_and_eret
-	nop
 	nop
 	nop
 
