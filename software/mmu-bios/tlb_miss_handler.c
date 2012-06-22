@@ -27,8 +27,12 @@ void dtlb_miss_handler(void)
 void itlb_miss_handler(void)
 {
 	unsigned int vaddr, paddr;
+	unsigned int EA;
 
+	asm volatile("mv %0, ea": "=r"(EA) :: );
 	asm volatile("rcsr %0, itlbma" : "=r"(vaddr) :: );
+
+	printf("ea == 0x%08X\n", EA);
 	printf("Address 0x%08X caused an ITLB page fault\n", vaddr);
 
 	paddr = get_mmu_mapping_for(vaddr);
