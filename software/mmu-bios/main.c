@@ -75,7 +75,8 @@ int printf(const char *fmt, ...)
 }
 
 void f(void) {
-	CSR_UART_RXTX = '@';
+	char c = '@';
+	CSR_UART_RXTX = c;
 //	asm volatile("bi f" ::: ); // We intinitely loop to f()
 	asm volatile("xor r0, r0, r0\n\t"
 		     "xor r0, r0, r0" ::: );
@@ -108,8 +109,13 @@ void itlbtest(void) {
 		*pdest = *p;
 	puts("Copy DONE");
 
-	asm volatile("wcsr DCC, r0");
-	asm volatile("wcsr ICC, r0");
+	asm volatile("wcsr DCC, r0\n\t"
+		     "xor r0, r0, r0\n\t"
+		     "xor r0, r0, r0\n\t"
+		     "xor r0, r0, r0\n\t"
+		     "xor r0, r0, r0");
+	asm volatile("wcsr ICC, r0\n\t"
+		     "xor r0, r0, r0");
 	puts("Instruction and Data caches have been invalidated");
 
 	call_function_with_itlb_enabled(f_addr);
