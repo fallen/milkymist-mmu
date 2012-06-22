@@ -17,6 +17,15 @@ void dtlb_exception_handling_tests() {
 
 	printf("stack == 0x%08X\n", stack);
 
+	ret = mmu_map(0x44000000, 0x44000000, ITLB_MAPPING | MAPPING_CAN_READ);
+	check_for_error(ret);
+	ret = mmu_map(0x44001000, 0x44001000, ITLB_MAPPING | MAPPING_CAN_READ);
+	check_for_error(ret);
+	ret = mmu_map(0x44002000, 0x44002000, ITLB_MAPPING | MAPPING_CAN_READ);
+	check_for_error(ret);
+	ret = mmu_map(0x44003000, 0x44003000, ITLB_MAPPING | MAPPING_CAN_READ);
+	check_for_error(ret);
+
 	addr = 0x44004004;
 
 	printf("\n=> Mapping 0x%08X to 0x%08X\n", addr, addr);
