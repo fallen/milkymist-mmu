@@ -117,6 +117,16 @@ _dtlb_miss_exception_handler:
 	nop
 	nop
 
+_itlb_miss_exception_handler:
+	sw	(sp+0), ra
+	calli	.save_all
+	calli	itlb_miss_handler
+	bi	.restore_all_and_eret
+	nop
+	nop
+	nop
+	nop
+
 macaddress:
 	.byte 0x10
 	.byte 0xe2

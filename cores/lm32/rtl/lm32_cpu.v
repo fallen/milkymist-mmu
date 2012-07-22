@@ -616,7 +616,8 @@ wire mc_stall_request_x;                        // Multi-cycle arithmetic unit s
 wire [`LM32_WORD_RNG] mc_result_x;
 `endif
 
-wire [`LM32_WORD_RNG] load_store_csr_read_data_x;// Data read from load store CSRs
+wire [`LM32_WORD_RNG] load_store_csr_read_data_x;// Data read from load store unit CSRs
+wire [`LM32_WORD_RNG] instruction_csr_read_data_x;// Data read from instruction unit CSRs
 // From CSRs
 `ifdef CFG_INTERRUPTS_ENABLED
 wire [`LM32_WORD_RNG] interrupt_csr_read_data_x;// Data read from interrupt CSRs
@@ -629,11 +630,32 @@ reg [`LM32_WORD_RNG] cc;                        // Cycle counter CSR
 reg [`LM32_WORD_RNG] csr_read_data_x;           // Data read from CSRs
 
 // To/from instruction unit
+`ifdef CFG_PIPELINE_TRACES
+wire [`LM32_PC_RNG] pc_a;
+`endif
 wire [`LM32_PC_RNG] pc_f;                       // PC of instruction in F stage
 wire [`LM32_PC_RNG] pc_d;                       // PC of instruction in D stage
 wire [`LM32_PC_RNG] pc_x;                       // PC of instruction in X stage
 wire [`LM32_PC_RNG] pc_m;                       // PC of instruction in M stage
 wire [`LM32_PC_RNG] pc_w;                       // PC of instruction in W stage
+
+`ifdef CFG_PIPELINE_TRACES
+always @(posedge clk_i `CFG_RESET_SENSITIVITY)
+begin
+	if (~rst_i)
+	begin
+		if (~stall_a)
+			$display("[%t] Addressing inst @ 0x%08X", $time, pc_a);
+		if (~stall_f)
+			$display("[%t] Fetching   inst @ 0x%08X", $time, pc_f);
+		if (~stall_d)
+			$display("[%t] Decoding   inst @ 0x%08X", $time, pc_d);
+		if (~stall_x)
+			$display("[%t] Executing  inst @ 0x%08X", $time, pc_x);
+	end
+end
+`endif
+
 `ifdef CFG_TRACE_ENABLED
 reg [`LM32_PC_RNG] pc_c;                        // PC of last commited instruction
 `endif
@@ -777,6 +799,12 @@ reg data_bus_error_seen;                        // Indicates if a data bus error
 reg ext_break_r;
 `endif
 
+`ifdef CFG_MMU_ENABLED
+wire dtlb_miss_exception;
+wire itlb_miss_exception;
+reg [`LM32_WORD_RNG] lm32_csr_psw_reg;
+`endif
+
 /////////////////////////////////////////////////////
 // Functions
 /////////////////////////////////////////////////////
@@ -819,6 +847,9 @@ lm32_instruction_unit #(
     .branch_target_x        (branch_target_x),
 `endif
     .exception_m            (exception_m),
+`ifdef CFG_MMU_ENABLED
+    .exception_x            (exception_x),
+`endif
     .branch_taken_m         (branch_taken_m),
     .branch_mispredict_taken_m (branch_mispredict_taken_m),
     .branch_target_m        (branch_target_m),
@@ -834,7 +865,15 @@ lm32_instruction_unit #(
     .dcache_restart_request (dcache_restart_request),
     .dcache_refill_request  (dcache_refill_request),
     .dcache_refilling       (dcache_refilling),
-`endif        
+`endif
+`ifdef CFG_MMU_ENABLED
+    .csr		    (csr_x),
+    .csr_write_data	    (operand_1_x),
+    .csr_write_enable	    (csr_write_enable_q_x),
+    .eret_q_x		    (eret_q_x),
+    .csr_psw		    (lm32_csr_psw_reg),
+    .q_x		    (q_x),
+`endif
 `ifdef CFG_IWB_ENABLED
     // From Wishbone
     .i_dat_i                (I_DAT_I),
@@ -849,6 +888,9 @@ lm32_instruction_unit #(
 `endif
     // ----- Outputs -------
     // To pipeline
+`ifdef CFG_PIPELINE_TRACES
+    .pc_a		    (pc_a),
+`endif
     .pc_f                   (pc_f),
     .pc_d                   (pc_d),
     .pc_x                   (pc_x),
@@ -862,6 +904,10 @@ lm32_instruction_unit #(
 `endif
 `ifdef CFG_IROM_ENABLED
     .irom_data_m            (irom_data_m),
+`endif
+`ifdef CFG_MMU_ENABLED
+    .itlb_miss		    (itlb_miss_exception),
+    .csr_read_data	    (instruction_csr_read_data_x),
 `endif
 `ifdef CFG_IWB_ENABLED
     // To Wishbone
@@ -967,8 +1013,6 @@ lm32_decoder decoder (
     .csr_write_enable       (csr_write_enable_d)
     ); 
 
-wire dtlb_miss_exception;
-
 // Load/store unit       
 lm32_load_store_unit #(
     .associativity          (dcache_associativity),
@@ -1006,10 +1050,13 @@ lm32_load_store_unit #(
 `ifdef CFG_IROM_ENABLED
     .irom_data_m            (irom_data_m),
 `endif
+`ifdef CFG_MMU_ENABLED
     .csr		    (csr_x),
     .csr_write_data         (operand_1_x),
     .csr_write_enable       (csr_write_enable_q_x),
     .eret_q_x		    (eret_q_x),
+    .csr_psw		    (lm32_csr_psw_reg),
+`endif
     // From Wishbone
     .d_dat_i                (D_DAT_I),
     .d_ack_i                (D_ACK_I),
@@ -1031,8 +1078,10 @@ lm32_load_store_unit #(
 `endif
     .load_data_w            (load_data_w),
     .stall_wb_load          (stall_wb_load),
+`ifdef CFG_MMU_ENABLED
     .dtlb_miss		    (dtlb_miss_exception),
     .csr_read_data          (load_store_csr_read_data_x),
+`endif
     // To Wishbone
     .d_dat_o                (D_DAT_O),
     .d_adr_o                (D_ADR_O),
@@ -1771,7 +1820,7 @@ assign non_debug_exception_x = (system_call_exception == `TRUE)
                                )
 `endif
 `ifdef CFG_MMU_ENABLED
-			|| (dtlb_miss_exception == `TRUE)
+			|| (dtlb_miss_exception == `TRUE || itlb_miss_exception == `TRUE)
 `endif
                             ;
 
@@ -1797,7 +1846,7 @@ assign exception_x =           (system_call_exception == `TRUE)
                                )
 `endif
 `ifdef CFG_MMU_ENABLED
-			|| (dtlb_miss_exception == `TRUE)
+			|| (dtlb_miss_exception == `TRUE || itlb_miss_exception == `TRUE)
 `endif
                             ;
 `endif
@@ -1847,9 +1896,13 @@ begin
         eid_x = `LM32_EID_INTERRUPT;
     else
 `endif
-	if (dtlb_miss_exception == `TRUE )
+`ifdef CFG_MMU_ENABLED
+	if (dtlb_miss_exception == `TRUE)
 		eid_x = `LM32_EID_DTLB_MISS;
+	else if (itlb_miss_exception == `TRUE)
+		eid_x = `LM32_EID_ITLB_MISS;
 	else
+`endif
 		eid_x = `LM32_EID_SCALL;
 end
 
@@ -2144,10 +2197,68 @@ begin
 `endif
     `LM32_CSR_CFG2: csr_read_data_x = cfg2;
     `LM32_CSR_TLB_VADDRESS: csr_read_data_x = load_store_csr_read_data_x;
-      
+    `LM32_CSR_TLB_PADDRESS: csr_read_data_x = instruction_csr_read_data_x;
+    `LM32_CSR_PSW:	csr_read_data_x = lm32_csr_psw_reg;
     default:        csr_read_data_x = {`LM32_WORD_WIDTH{1'bx}};
     endcase
 end
+
+`ifdef CFG_MMU_ENABLED
+
+always @(posedge clk_i `CFG_RESET_SENSITIVITY)
+begin
+	if (rst_i)
+	begin
+		lm32_csr_psw_reg <= `LM32_WORD_WIDTH'h0;
+	end
+	else
+	begin
+`ifdef CFG_DEBUG_ENABLED
+		if (non_debug_exception_q_w == `TRUE)
+		begin
+		    // Save and then clear ITLB enable
+		    lm32_csr_psw_reg[`LM32_CSR_PSW_EITLBE] <= lm32_csr_psw_reg[`LM32_CSR_PSW_ITLBE];
+		    lm32_csr_psw_reg[`LM32_CSR_PSW_ITLBE] <= `FALSE;
+		end
+		else if (debug_exception_q_w == `TRUE)
+		begin
+		    // Save and then clear TLB enable
+		    lm32_csr_psw_reg[`LM32_CSR_PSW_BITLBE] <= lm32_csr_psw_reg[`LM32_CSR_PSW_ITLBE];
+		    lm32_csr_psw_reg[`LM32_CSR_PSW_ITLBE] <= `FALSE;
+		end
+`else
+		if (exception_q_w == `TRUE)
+		begin
+		    // Save and then clear ITLB enable
+		    lm32_csr_psw_reg[`LM32_CSR_PSW_EITLBE] <= lm32_csr_psw_reg[`LM32_CSR_PSW_ITLBE];
+		    lm32_csr_psw_reg[`LM32_CSR_PSW_ITLBE] <= `FALSE;
+		end
+`endif
+		else if (stall_x == `FALSE)
+		begin
+		    if (eret_q_x == `TRUE)
+			// Restore ITLB enable
+			lm32_csr_psw_reg[`LM32_CSR_PSW_ITLBE] <= lm32_csr_psw_reg[`LM32_CSR_PSW_EITLBE];
+`ifdef CFG_DEBUG_ENABLED
+		    else if (bret_q_x == `TRUE)
+			// Restore ITLB enable
+			lm32_csr_psw_reg[`LM32_CSR_PSW_ITLBE] <= lm32_csr_psw_reg[`LM32_CSR_PSW_BITLBE];
+`endif
+		    else if (csr_write_enable_q_x == `TRUE)
+		    begin
+			// Handle wcsr write
+			case (csr_x)
+			// operand_1_x is csr_write_data
+			`LM32_CSR_PSW:
+				lm32_csr_psw_reg <= operand_1_x;
+			`LM32_CSR_IE:
+				lm32_csr_psw_reg[2:0] <= operand_1_x[2:0];
+			endcase
+		    end
+		end
+	end
+end
+`endif
 
 /////////////////////////////////////////////////////
 // Sequential Logic
@@ -2231,7 +2342,7 @@ begin
 end
 `endif
 
-// Valid bits to indicate whether an instruction in a partcular pipeline stage is valid or not  
+// Valid bits to indicate whether an instruction in a particular pipeline stage is valid or not
 
 `ifdef CFG_ICACHE_ENABLED
 `ifdef CFG_DCACHE_ENABLED

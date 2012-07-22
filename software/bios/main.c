@@ -431,6 +431,7 @@ static void help()
 	puts("mmuread    - reads from memory with MMU enabled");
 	puts("mmuwrite   - writes to memory with MMU enabled");
 	puts("dtlbtest   - runs DTLB MMU load store tests");
+	puts("itlbtest   - runs ITLB MMU tests");
 	puts("detest     - runs DTLB MMU exception handling tests");
 }
 
@@ -616,6 +617,7 @@ static void do_command(char *c)
 	else if(strcmp(token, "rcsr") == 0) rcsr(get_token(&c));
 	else if(strcmp(token, "wcsr") == 0) wcsr(get_token(&c), get_token(&c));
 	else if(strcmp(token, "dtlbtest") == 0) dtlbtest();
+	else if(strcmp(token, "itlbtest") == 0) itlbtest();
 	else if(strcmp(token, "detest") == 0) dtlb_exception_handling_tests();
 	else if(strcmp(token, "dmap") == 0) dmap(get_token(&c), get_token(&c));
 	else if(strcmp(token, "dunmap") == 0) dunmap(get_token(&c));
@@ -794,6 +796,10 @@ int main(int i, char **c)
 		printf("I: Booting in rescue mode\n");
 
 	uart_set_polling_mode(1);
+/*
+	mmu_dtlb_invalidate();
+	mmu_itlb_invalidate();
+*/
 	while(1) {
 		putsnonl("\e[1mBIOS>\e[0m ");
 		readstr(buffer, 64);

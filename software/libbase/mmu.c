@@ -33,7 +33,7 @@ struct mmu_mapping mappings[MAX_MMU_SLOTS];
  * If there is no empty slot anymore then we fail
  */
 
-unsigned int mmu_map(unsigned int vaddr, unsigned int paddr) {
+unsigned int mmu_map(unsigned int vaddr, unsigned int paddr, char metadata) {
 	int i;
 	int empty_slot = NO_EMPTY_SLOT;
 	vaddr = get_pfn(vaddr);
@@ -41,11 +41,26 @@ unsigned int mmu_map(unsigned int vaddr, unsigned int paddr) {
 
 	for (i = 0 ; i < MAX_MMU_SLOTS ; ++i)
 	{
-		if (!mappings[i].valid)
+		if (!(mappings[i].metadata & (MAPPING_IS_VALID)))
 			empty_slot = i;
-		if ((vaddr == mappings[i].vaddr) && (paddr == mappings[i].paddr) && mappings[i].valid)
+		if ((vaddr == mappings[i].vaddr) && (paddr == mappings[i].paddr) && (mappings[i].metadata & MAPPING_IS_VALID))
 		{
-			puts("Already mapped !");
+			puts("Already mapped, updating metadata !");
+			mappings[i].metadata |= metadata;
+//			if (mappings[i].metadata & ITLB_MAPPING)
+//				mmu_itlb_map(vaddr, paddr);
+			if (mappings[i].metadata & DTLB_MAPPING)
+				mmu_dtlb_map(vaddr, paddr);
+			return 1;
+		} else if ((vaddr == mappings[i].vaddr) && (paddr != mappings[i].paddr) && (mappings[i].metadata & MAPPING_IS_VALID))
+		{
+			puts("Vaddr already mapped to another Paddr (0x%08X), overwritting...\n", mappings[i].paddr);
+			mappings[i].paddr = paddr;
+			mappings[i].metadata = (metadata | MAPPING_IS_VALID);
+//			if (mappings[i].metadata & ITLB_MAPPING)
+//				mmu_itlb_map(vaddr, paddr);
+			if (mappings[i].metadata & DTLB_MAPPING)
+				mmu_dtlb_map(vaddr, paddr);
 			return 1;
 		}
 	}
@@ -58,8 +73,14 @@ unsigned int mmu_map(unsigned int vaddr, unsigned int paddr) {
 
 	mappings[empty_slot].vaddr = vaddr;
 	mappings[empty_slot].paddr = paddr;
-	mappings[empty_slot].valid = 1;
-	mmu_dtlb_map(vaddr, paddr);
+	mappings[empty_slot].metadata = (metadata | MAPPING_IS_VALID);
+
+//	if (metadata & ITLB_MAPPING)
+//		mmu_itlb_map(vaddr, paddr);
+
+	if (metadata & DTLB_MAPPING)
+		mmu_dtlb_map(vaddr, paddr);
+
 	printf("mapping 0x%08X->0x%08X in slot %d [0x%p]\n", vaddr, paddr, empty_slot, &mappings[empty_slot]);
 
 	return 1;
@@ -70,7 +91,7 @@ unsigned int get_mmu_mapping_for(unsigned int vaddr) {
 	vaddr = get_pfn(vaddr);
 
 	for (i = 0 ; i < MAX_MMU_SLOTS ; ++i)
-		if (mappings[i].valid && (vaddr == mappings[i].vaddr))
+		if ((mappings[i].metadata & MAPPING_IS_VALID) && (vaddr == mappings[i].vaddr))
 			return mappings[i].paddr;
 
 	return A_BAD_ADDR;
@@ -82,13 +103,35 @@ unsigned char remove_mmu_mapping_for(unsigned int vaddr) {
 
 	for (i = 0 ; i < MAX_MMU_SLOTS ; ++i)
 	{
-		if (mappings[i].valid && (vaddr == mappings[i].vaddr))
+		if ((mappings[i].metadata & MAPPING_IS_VALID) && (vaddr == mappings[i].vaddr))
 		{
-			mmu_dtlb_invalidate(vaddr);
-			mappings[i].valid = 0;
+			mmu_dtlb_invalidate_line(vaddr);
+			mappings[i].metadata &= ~MAPPING_IS_VALID;
 			return 1;
 		}
 	}
+	return 0;
+}
+
+unsigned char is_dtlb_mapping(unsigned int vaddr) {
+	unsigned int i;
+	vaddr = get_pfn(vaddr);
+
+	for (i = 0 ; i < MAX_MMU_SLOTS ; ++i)
+		if ((mappings[i].vaddr == vaddr) && (mappings[i].metadata & (MAPPING_IS_VALID)) && (mappings[i].metadata & (DTLB_MAPPING)))
+			return 1;
+
+	return 0;
+}
+
+unsigned char is_itlb_mapping(unsigned int vaddr) {
+	unsigned int i;
+	vaddr = get_pfn(vaddr);
+
+	for (i = 0 ; i < MAX_MMU_SLOTS ; ++i)
+		if ((mappings[i].vaddr == vaddr) && (mappings[i].metadata & (MAPPING_IS_VALID)) && (mappings[i].metadata & (ITLB_MAPPING)))
+			return 1;
+
 	return 0;
 }
 
@@ -113,4 +156,23 @@ void check_for_error(int ret) {
 		puts("Unknown issue");
 		panic();
 	}
+}
+
+void mmu_map_print(void)
+{
+	unsigned int i;
+
+	for (i = 0 ; i < MAX_MMU_SLOTS ; ++i)
+	{
+		if (mappings[i].metadata & MAPPING_IS_VALID)
+		{
+			printf("[%d] 0x%08X -> 0x%08X:", i, mappings[i].vaddr, mappings[i].paddr);
+			if (mappings[i].metadata & ITLB_MAPPING)
+				printf(" ITLB ");
+			if (mappings[i].metadata & DTLB_MAPPING)
+				printf(" DTLB ");
+			puts("");
+		}
+	}
+
 }

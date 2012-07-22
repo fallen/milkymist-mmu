@@ -21,6 +21,9 @@
 #define DTLB_CTRL_FLUSH_CMD	(0x3)
 #define DTLB_CTRL_DISABLE_CMD	(0x9)
 #define DTLB_CTRL_ENABLE_CMD	(0x11)
+#define ITLB_CTRL_FLUSH_CMD	(0x2)
+#define ITLB_CTRL_DISABLE_CMD	(0x8)
+#define ITLB_CTRL_ENABLE_CMD	(0x10)
 
 /* @vpfn : virtual page frame number
  * @pfn  : physical page frame number
@@ -32,7 +35,7 @@ inline void mmu_dtlb_map(unsigned int vpfn, unsigned int pfn)
  			 "wcsr tlbvaddr, %0" :: "r"(vpfn) : );
 
 	asm volatile	("ori %0, %0, 1\n\t"
-			 "wcsr tlbpaddr, %0"::"r"(pfn):);
+			 "wcsr tlbpaddr, %0" :: "r"(pfn) : );
 
 	asm volatile	("xor r11, r11, r11\n\t"
 			 "ori r11, r11, 0x5\n\t"
@@ -40,19 +43,48 @@ inline void mmu_dtlb_map(unsigned int vpfn, unsigned int pfn)
 
 }
 
+inline void mmu_itlb_map(unsigned int vpfn, unsigned int pfn)
+{
+
+	asm volatile	("wcsr tlbvaddr, %0" :: "r"(get_pfn(vpfn)) : );
+
+	asm volatile	("wcsr tlbpaddr, %0" :: "r"(get_pfn(pfn)) : );
+
+	asm volatile	("xor r11, r11, r11\n\t"
+			 "ori r11, r11, 0x4\n\t"
+			 "wcsr tlbctrl, r11" ::: "r11");
+}
+
 inline void mmu_dtlb_invalidate_line(unsigned int vaddr)
 {
 	asm volatile ("ori %0, %0, 1\n\t"
-		      "wcsr tlbvaddr, %0"::"r"(vaddr):);
+		      "wcsr tlbvaddr, %0" :: "r"(vaddr) : );
 
 	asm volatile ("xor r11, r11, r11\n\t"
 		      "ori r11, r11, 0x21\n\t"
 		      "wcsr tlbctrl, r11" ::: "r11");
 }
 
+inline void mmu_itlb_invalidate_line(unsigned int vaddr)
+{
+	asm volatile ("ori %0, %0, 0\n\t"
+		      "wcsr tlbvaddr, %0" :: "r"(vaddr) : );
+
+	asm volatile ("xor r11, r11, r11\n\t"
+		      "ori r11, r11, 0x20\n\t"
+		      "wcsr tlbctrl, r11" ::: "r11");
+}
+
 inline void mmu_dtlb_invalidate(void)
 {
 	register unsigned int cmd = DTLB_CTRL_FLUSH_CMD;
+	asm volatile("wcsr tlbctrl, %0" :: "r"(cmd) : );
+
+}
+
+inline void mmu_itlb_invalidate(void)
+{
+	register unsigned int cmd = ITLB_CTRL_FLUSH_CMD;
 	asm volatile("wcsr tlbctrl, %0" :: "r"(cmd) : );
 
 }
@@ -95,3 +127,16 @@ unsigned int write_word_with_mmu_enabled(register unsigned int vaddr, register u
 		"xor r0, r0, r0\n\t" :: "r"(vaddr), "r"(data) : "r11"
 	);
 }
+/*
+inline void call_function_with_itlb_enabled(unsigned int f)
+{
+	asm volatile(
+		"xor r11, r11, r11\n\t"
+		"ori r11, r11, 0x10\n\t"
+		"wcsr tlbctrl, r11\n\t" // Activates ITLB
+		"call %0\n\t"
+		"xor r11, r11, r11\n\t"
+		"ori r11, r11, 0x8\n\t"
+		"wcsr tlbctrl, r11" :: "r"(f) : "r11" // Disactivates ITLB
+	);
+}*/

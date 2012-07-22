@@ -99,6 +99,10 @@ module lm32_instruction_unit (
     branch_target_x,
 `endif
     exception_m,
+`ifdef CFG_MMU_ENABLED
+    exception_x,
+    csr_psw,
+`endif
     branch_taken_m,
     branch_mispredict_taken_m,
     branch_target_m,
@@ -115,6 +119,13 @@ module lm32_instruction_unit (
     irom_address_xm,
     irom_we_xm,
 `endif
+`ifdef CFG_MMU_ENABLED
+    csr,
+    csr_write_data,
+    csr_write_enable,
+    eret_q_x,
+    q_x,
+`endif
 `ifdef CFG_IWB_ENABLED
     // From Wishbone
     i_dat_i,
@@ -129,6 +140,9 @@ module lm32_instruction_unit (
 `endif
     // ----- Outputs -------
     // To pipeline
+`ifdef CFG_PIPELINE_TRACES
+    pc_a,
+`endif
     pc_f,
     pc_d,
     pc_x,
@@ -142,6 +156,10 @@ module lm32_instruction_unit (
 `endif
 `ifdef CFG_IROM_ENABLED
     irom_data_m,
+`endif
+`ifdef CFG_MMU_ENABLED
+    itlb_miss,
+    csr_read_data,
 `endif
 `ifdef CFG_IWB_ENABLED
     // To Wishbone
@@ -245,6 +263,16 @@ input [`LM32_BYTE_RNG] jtag_write_data;                 // JTAG wrirte data
 input [`LM32_WORD_RNG] jtag_address;                    // JTAG read/write address
 `endif
 
+`ifdef CFG_MMU_ENABLED
+input exception_x;                                      // An exception occured in the X stage
+input eret_q_x;
+input q_x;
+input [`LM32_CSR_RNG] csr;				// CSR read/write index
+input [`LM32_WORD_RNG] csr_write_data;			// Data to write to specified CSR
+input csr_write_enable;					// CSR write enable
+input [`LM32_WORD_RNG] csr_psw;
+`endif
+
 /////////////////////////////////////////////////////
 // Outputs
 /////////////////////////////////////////////////////
@@ -327,11 +355,21 @@ wire   [`LM32_INSTRUCTION_RNG] instruction_f;
 output [`LM32_INSTRUCTION_RNG] instruction_d;           // D stage instruction to be decoded
 reg    [`LM32_INSTRUCTION_RNG] instruction_d;
 
+`ifdef CFG_MMU_ENABLED
+output csr_read_data;
+wire [`LM32_WORD_RNG] csr_read_data;
+output itlb_miss;
+wire itlb_miss;
+`endif
+
 /////////////////////////////////////////////////////
 // Internal nets and registers 
 /////////////////////////////////////////////////////
 
 reg [`LM32_PC_RNG] pc_a;                                // A stage PC
+`ifdef CFG_PIPELINE_TRACES
+output [`LM32_PC_RNG] pc_a;
+`endif
 
 `ifdef LM32_CACHE_ENABLED
 reg [`LM32_PC_RNG] restart_address;                     // Address to restart from after a cache miss  
@@ -340,6 +378,9 @@ reg [`LM32_PC_RNG] restart_address;                     // Address to restart fr
 `ifdef CFG_ICACHE_ENABLED
 wire icache_read_enable_f;                              // Indicates if instruction cache miss is valid
 wire [`LM32_PC_RNG] icache_refill_address;              // Address that caused cache miss
+`ifdef CFG_MMU_ENABLED
+wire [`LM32_PC_RNG] icache_physical_refill_address;     // Physical address that caused cache miss
+`endif
 reg icache_refill_ready;                                // Indicates when next word of refill data is ready to be written to cache
 reg [`LM32_INSTRUCTION_RNG] icache_refill_data;         // Next word of refill data, fetched from Wishbone
 wire [`LM32_INSTRUCTION_RNG] icache_data_f;             // Instruction fetched from instruction cache
@@ -371,6 +412,11 @@ reg jtag_access;                                        // Indicates if a JTAG W
 
 `ifdef CFG_ALTERNATE_EBA
 reg alternate_eba_taken;
+`endif
+
+`ifdef CFG_MMU_ENABLED
+wire [`LM32_WORD_RNG] physical_address;
+wire kernel_mode;
 `endif
 
 /////////////////////////////////////////////////////
@@ -446,20 +492,48 @@ lm32_icache #(
     .rst_i                  (rst_i),      
     .stall_a                (stall_a),
     .stall_f                (stall_f),
+`ifdef CFG_MMU_ENABLED
+    .stall_x		    (stall_x),
+    .stall_m		    (stall_m),
+`endif
     .branch_predict_taken_d (branch_predict_taken_d),
     .valid_d                (valid_d),
     .address_a              (pc_a),
     .address_f              (pc_f),
+`ifdef CFG_MMU_ENABLED
+    .pc_x		    (pc_x),
+    .pc_m		    (pc_m),
+    .pc_w		    (pc_w),
+`endif
     .read_enable_f          (icache_read_enable_f),
     .refill_ready           (icache_refill_ready),
     .refill_data            (icache_refill_data),
     .iflush                 (iflush),
+`ifdef CFG_MMU_ENABLED
+    .csr		    (csr),
+    .csr_write_data	    (csr_write_data),
+    .csr_write_enable	    (csr_write_enable),
+    .csr_psw		    (csr_psw),
+    .exception_x	    (exception_x),
+    .eret_q_x		    (eret_q_x),
+    .exception_m	    (exception_m),
+    .q_x		    (q_x),
+`endif
     // ----- Outputs -----
     .stall_request          (icache_stall_request),
     .restart_request        (icache_restart_request),
     .refill_request         (icache_refill_request),
     .refill_address         (icache_refill_address),
+`ifdef CFG_MMU_ENABLED
+    .physical_refill_address (icache_physical_refill_address),
+`endif
     .refilling              (icache_refilling),
+`ifdef CFG_MMU_ENABLED
+    .itlb_miss_int	    (itlb_miss),
+    .kernel_mode	    (kernel_mode),
+    .pa			    (physical_address),
+    .csr_read_data	    (csr_read_data),
+`endif
     .inst                   (icache_data_f)
     );
 `endif
@@ -487,27 +561,52 @@ begin
     // The request from the latest pipeline stage must take priority
 `ifdef CFG_DCACHE_ENABLED
     if (dcache_restart_request == `TRUE)
+    begin
+`ifdef CFG_PIPELINE_TRACES
+        $display("[%t] We restart to 0x%08X because of DCACHE", $time, restart_address);
+`endif
         pc_a = restart_address;
+    end
     else 
 `endif    
       if (branch_taken_m == `TRUE)
 	if ((branch_mispredict_taken_m == `TRUE) && (exception_m == `FALSE))
+        begin
+`ifdef CFG_PIPELINE_TRACES
+	  $display("[%t] Mispredict, goto pc_x == 0x%08X", $time, pc_x);
+`endif
 	  pc_a = pc_x;
+        end
 	else
+        begin
+`ifdef CFG_PIPELINE_TRACES
+          $display("[%t] Correctly predicted, goto branch_target_m == 0x%08X", $time, branch_target_m);
+`endif
           pc_a = branch_target_m;
-`ifdef CFG_FAST_UNCONDITIONAL_BRANCH    
+        end
+`ifdef CFG_FAST_UNCONDITIONAL_BRANCH
       else if (branch_taken_x == `TRUE)
         pc_a = branch_target_x;
 `endif
       else
 	if ( (valid_d == `TRUE) && (branch_predict_taken_d == `TRUE) )
+        begin
+`ifdef CFG_PIPELINE_TRACES
+          $display("[%t] We go to branch_predict_address_d == 0x%08X", $time, branch_predict_address_d);
+`endif
 	  pc_a = branch_predict_address_d;
+        end
 	else
 `ifdef CFG_ICACHE_ENABLED
           if (icache_restart_request == `TRUE)
+          begin
+`ifdef CFG_PIPELINE_TRACES
+            $display("[%t] We restart to 0x%08X because of ICACHE", $time, restart_address);
+`endif
             pc_a = restart_address;
+          end
 	  else 
-`endif        
+`endif
             pc_a = pc_f + 1'b1;
 end
 
@@ -555,21 +654,33 @@ generate
 assign first_cycle_type = `LM32_CTYPE_END;
 assign next_cycle_type = `LM32_CTYPE_END;
 assign last_word = `TRUE;
+`ifdef CFG_MMU_ENABLED
+assign first_address = icache_physical_refill_address;
+`else
 assign first_address = icache_refill_address;
+`endif
     end
     8:
     begin
 assign first_cycle_type = `LM32_CTYPE_INCREMENTING;
 assign next_cycle_type = `LM32_CTYPE_END;
 assign last_word = i_adr_o[addr_offset_msb:addr_offset_lsb] == 1'b1;
+`ifdef CFG_MMU_ENABLED
+assign first_address = {icache_physical_refill_address[`LM32_PC_WIDTH+2-1:addr_offset_msb+1], {addr_offset_width{1'b0}}};
+`else
 assign first_address = {icache_refill_address[`LM32_PC_WIDTH+2-1:addr_offset_msb+1], {addr_offset_width{1'b0}}};
+`endif
     end
     16:
     begin
 assign first_cycle_type = `LM32_CTYPE_INCREMENTING;
 assign next_cycle_type = i_adr_o[addr_offset_msb] == 1'b1 ? `LM32_CTYPE_END : `LM32_CTYPE_INCREMENTING;
 assign last_word = i_adr_o[addr_offset_msb:addr_offset_lsb] == 2'b11;
+`ifdef CFG_MMU_ENABLED
+assign first_address = {icache_physical_refill_address[`LM32_PC_WIDTH+2-1:addr_offset_msb+1], {addr_offset_width{1'b0}}};
+`else
 assign first_address = {icache_refill_address[`LM32_PC_WIDTH+2-1:addr_offset_msb+1], {addr_offset_width{1'b0}}};
+`endif
     end
     endcase
 endgenerate

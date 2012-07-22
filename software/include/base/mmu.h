@@ -20,9 +20,11 @@
 
 #include <hal/mmu.h>
 
-unsigned int mmu_map(unsigned int vaddr, unsigned int paddr);
+unsigned int mmu_map(unsigned int vaddr, unsigned int paddr, char metadata);
 unsigned int get_mmu_mapping_for(unsigned int vaddr);
 unsigned char remove_mmu_mapping_for(unsigned int vaddr);
+unsigned char is_dtlb_mapping(unsigned int vaddr);
+unsigned char is_itlb_mapping(unsigned int vaddr);
 void panic(void);
 void check_for_error(int ret);
 
