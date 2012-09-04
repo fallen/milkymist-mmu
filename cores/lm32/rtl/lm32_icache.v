@@ -743,7 +743,7 @@ begin
 		itlb_miss_q <= `FALSE;
 	else
 	begin
-		if (itlb_miss && ~itlb_miss_q)
+		if (itlb_miss && ~itlb_miss_q && ~(exception_x == `TRUE && stall_m == `FALSE && stall_x == `FALSE && q_x == `TRUE))
 			itlb_miss_q <= `TRUE;
 		else if (itlb_miss_q && /* exception_m == `TRUE */ exception_x == `TRUE && stall_m == `FALSE && stall_x == `FALSE && q_x == `TRUE)
 			itlb_miss_q <= `FALSE;
