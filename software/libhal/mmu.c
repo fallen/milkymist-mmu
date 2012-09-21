@@ -36,11 +36,10 @@ inline void mmu_dtlb_map(unsigned int vpfn, unsigned int pfn)
 
 	asm volatile	("ori %0, %0, 1\n\t"
 			 "wcsr tlbpaddr, %0" :: "r"(pfn) : );
-
+/*
 	asm volatile	("xor r11, r11, r11\n\t"
 			 "ori r11, r11, 0x5\n\t"
-			 "wcsr tlbctrl, r11" ::: "r11");
-
+			 "wcsr tlbctrl, r11" ::: "r11"); */
 }
 
 inline void mmu_itlb_map(unsigned int vpfn, unsigned int pfn)
@@ -50,42 +49,34 @@ inline void mmu_itlb_map(unsigned int vpfn, unsigned int pfn)
 
 	asm volatile	("wcsr tlbpaddr, %0" :: "r"(get_pfn(pfn)) : );
 
-	asm volatile	("xor r11, r11, r11\n\t"
+/*	asm volatile	("xor r11, r11, r11\n\t"
 			 "ori r11, r11, 0x4\n\t"
-			 "wcsr tlbctrl, r11" ::: "r11");
+			 "wcsr tlbctrl, r11" ::: "r11"); */
 }
 
 inline void mmu_dtlb_invalidate_line(unsigned int vaddr)
 {
-	asm volatile ("ori %0, %0, 1\n\t"
+	asm volatile ("ori %0, %0, 0x21\n\t"
 		      "wcsr tlbvaddr, %0" :: "r"(vaddr) : );
-
-	asm volatile ("xor r11, r11, r11\n\t"
-		      "ori r11, r11, 0x21\n\t"
-		      "wcsr tlbctrl, r11" ::: "r11");
 }
 
 inline void mmu_itlb_invalidate_line(unsigned int vaddr)
 {
-	asm volatile ("ori %0, %0, 0\n\t"
+	asm volatile ("ori %0, %0, 0x20\n\t"
 		      "wcsr tlbvaddr, %0" :: "r"(vaddr) : );
-
-	asm volatile ("xor r11, r11, r11\n\t"
-		      "ori r11, r11, 0x20\n\t"
-		      "wcsr tlbctrl, r11" ::: "r11");
 }
 
 inline void mmu_dtlb_invalidate(void)
 {
 	register unsigned int cmd = DTLB_CTRL_FLUSH_CMD;
-	asm volatile("wcsr tlbctrl, %0" :: "r"(cmd) : );
+//	asm volatile("wcsr tlbctrl, %0" :: "r"(cmd) : );
 
 }
 
 inline void mmu_itlb_invalidate(void)
 {
 	register unsigned int cmd = ITLB_CTRL_FLUSH_CMD;
-	asm volatile("wcsr tlbctrl, %0" :: "r"(cmd) : );
+//	asm volatile("wcsr tlbctrl, %0" :: "r"(cmd) : );
 
 }
 
@@ -103,11 +94,17 @@ unsigned int read_word_with_mmu_enabled(unsigned int vaddr)
 	cmd1  = DTLB_CTRL_ENABLE_CMD;
 	cmd2 = DTLB_CTRL_DISABLE_CMD;
 
-	asm volatile("wcsr tlbctrl, %2\n\t" // Activates the MMU
+	asm volatile("rcsr r11, PSW\n\t"
+		     "ori r11, r11, 64\n\t"
+		     "wcsr PSW, r11\n\t" // Activates the MMU
+		     //"wcsr tlbctrl, %2\n\t" // Activates the MMU
 		     "xor r0, r0, r0\n\t"
 		     "lw  %0, (%1+0)\n\t" // Reads from virtual address "addr"
-		     "wcsr tlbctrl, %3\n\t" // Disactivates the MMU
-		     "xor r0, r0, r0\n\t" : "=&r"(data) : "r"(vaddr), "r"(cmd1), "r"(cmd2) : 
+		     "mvi r10, ~(64)\n\t"
+		     "and r11, r11, r10\n\t"
+		     "wcsr PSW, r11\n\t" // Disactivates the MMU
+		     //"wcsr tlbctrl, %3\n\t" // Disactivates the MMU
+		     "xor r0, r0, r0\n\t" : "=&r"(data) : "r"(vaddr)/*, "r"(cmd1), "r"(cmd2)*/ : "r11", "r10"
 	);
 
 	return data;
@@ -116,15 +113,15 @@ unsigned int read_word_with_mmu_enabled(unsigned int vaddr)
 unsigned int write_word_with_mmu_enabled(register unsigned int vaddr, register unsigned int data)
 {
 	asm volatile(
-		"xor r11, r11, r11\n\t"
-		"ori r11, r11, 0x11\n\t"
-		"wcsr tlbctrl, r11\n\t" // Activates the MMU
+		"rcsr r11, PSW\n\t"
+		"ori r11, r11, 64\n\t"
+		"wcsr PSW, r11\n\t" // Activates the MMU
 		"xor r0, r0, r0\n\t"
 		"sw  (%0 + 0), %1\n\t" // Reads from virtual address "addr"
-		"xor r11, r11, r11\n\t"
-		"ori r11, r11, 0x9\n\t"
-		"wcsr tlbctrl, r11\n\t" // Disactivates the MMU
-		"xor r0, r0, r0\n\t" :: "r"(vaddr), "r"(data) : "r11"
+		"mvi r10, ~(64)\n\t"
+		"and r11, r11, r10\n\t"
+		"wcsr PSW, r11\n\t" // Disactivates the MMU
+		"xor r0, r0, r0\n\t" :: "r"(vaddr), "r"(data) : "r11", "r10"
 	);
 }
 /*

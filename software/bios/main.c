@@ -46,7 +46,7 @@
 enum {
 	CSR_IE = 1, CSR_IM, CSR_IP, CSR_ICC, CSR_DCC, CSR_CC, CSR_CFG, CSR_EBA,
 	CSR_DC, CSR_DEBA, CSR_JTX, CSR_JRX, CSR_BP0, CSR_BP1, CSR_BP2, CSR_BP3,
-	CSR_WP0, CSR_WP1, CSR_WP2, CSR_WP3, CSR_TLBCTRL, CSR_TLBVADDR, CSR_TLBPADDR
+	CSR_WP0, CSR_WP1, CSR_WP2, CSR_WP3, CSR_PSW, CSR_TLBVADDR, CSR_TLBPADDR
 };
 
 /* General address space functions */
@@ -233,7 +233,7 @@ static int parse_csr(const char *csr)
 	if(!strcmp(csr, "wp1"))  return CSR_WP1;
 	if(!strcmp(csr, "wp2"))  return CSR_WP2;
 	if(!strcmp(csr, "wp3"))  return CSR_WP3;
-	if(!strcmp(csr, "tlbctrl"))   return CSR_TLBCTRL;
+	if(!strcmp(csr, "psw"))   return CSR_PSW;
 	if(!strcmp(csr, "tlbvaddr"))  return CSR_TLBVADDR;
 	if(!strcmp(csr, "tlbpaddr"))  return CSR_TLBPADDR;
 
@@ -266,6 +266,7 @@ static void rcsr(char *csr)
 		case CSR_DEBA: asm volatile ("rcsr %0,deba":"=r"(value)); break;
 		case CSR_JTX:  asm volatile ("rcsr %0,jtx":"=r"(value)); break;
 		case CSR_JRX:  asm volatile ("rcsr %0,jrx":"=r"(value)); break;
+		case CSR_PSW:  asm volatile ("rcsr %0,psw":"=r"(value)); break;
 		default: printf("csr write only\n"); return;
 	}
 
@@ -312,7 +313,7 @@ static void wcsr(char *csr, char *value)
 		case CSR_WP1:  asm volatile ("wcsr wp1,%0"::"r"(value2)); break;
 		case CSR_WP2:  asm volatile ("wcsr wp2,%0"::"r"(value2)); break;
 		case CSR_WP3:  asm volatile ("wcsr wp3,%0"::"r"(value2)); break;
-		case CSR_TLBCTRL:   asm volatile ("wcsr tlbctrl,%0"::"r"(value2));  break;
+		case CSR_PSW:   asm volatile ("wcsr psw,%0"::"r"(value2));  break;
 		case CSR_TLBVADDR:  asm volatile ("wcsr tlbvaddr,%0"::"r"(value2)); break;
 		case CSR_TLBPADDR:  asm volatile ("wcsr tlbpaddr,%0"::"r"(value2)); break;
 		default: printf("csr read only\n"); return;

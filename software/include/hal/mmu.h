@@ -46,32 +46,31 @@ struct mmu_mapping {
 };
 
 #define enable_dtlb() do { \
-	asm volatile	("xor r11, r11, r11\n\t" \
-			 "ori r11, r11, 0x11\n\t" \
-			 "wcsr tlbctrl, r11\n\t" \
-			 "xor r0, r0, r0":::"r11"); \
+	asm volatile	("rcsr r11, PSW\n\t" \
+			 "ori r11, r11, 64\n\t" \
+			 "wcsr PSW, r11\n\t" \
+			 "xor r0, r0, r0" ::: "r11"); \
 } while(0);
 
 #define disable_dtlb() do { \
-	asm volatile	("xor r11, r11, r11\n\t" \
-			 "ori r11, r11, 0x9\n\t" \
-			 "wcsr tlbctrl, r11\n\t" \
+	asm volatile	("rcsr r11, PSW\n\t" \
+			 "mvi r10, ~(64)\n\t" \
+			 "and r11, r11, r10\n\t" \
+			 "wcsr PSW, r11\n\t" \
 			 "xor r0, r0, r0\n\t" \
 			 "xor r0, r0, r0\n\t" \
-			 "xor r0, r0, r0":::"r11"); \
+			 "xor r0, r0, r0" ::: "r11", "r10"); \
 } while(0);
 
 #define enable_itlb() do { \
-	asm volatile	("xor r11, r11, r11\n\t" \
-			 "ori r11, r11, 0x10\n\t" \
-			 "wcsr tlbctrl, r11\n\t" \
+	asm volatile	("rcsr r11, PSW\n\t" \
+			 "ori r11, r11, 0x8\n\t" \
+			 "wcsr PSW, r11\n\t" \
 			 "xor r0, r0, r0\n\t" \
 			 "xor r0, r0, r0\n\t" \
 			 "xor r0, r0, r0\n\t" \
 			 "xor r0, r0, r0\n\t":::"r11"); \
 } while(0);
-
-#define LM32_CSR_PSW_ITLBE	"(0x8)"
 
 #define disable_itlb() do { \
 	asm volatile ("rcsr r11, PSW\n\t" \
@@ -79,10 +78,6 @@ struct mmu_mapping {
 		      "and r11, r11, r10\n\t" \
 		      "wcsr PSW, r11\n\t" ::: "r10", "r11"); \
 } while (0);
-
-// FIXME : We MUST replace the following macro with a function which
-// enables ITLB using two different methods depending on whether
-// branch will be predicted as taken or non-taken
 
 #define call_function_with_itlb_enabled(function) do { \
 	asm volatile	("rcsr r11, PSW\n\t" \

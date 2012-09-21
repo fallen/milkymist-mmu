@@ -8,9 +8,9 @@ static inline void generate_test(int i, int j) {
 	int k;
 
 	puts("asm volatile(");
-	puts("\t\"xor r11, r11, r11\\n\\t\"");
-	puts("\t\"ori r11, r11, 0x11\\n\\t\"");
-	puts("\t\"wcsr tlbctrl, r11\\n\\t\"");
+	puts("\t\"rcsr r11, PSW\\n\\t\"");
+	puts("\t\"ori r11, r11, 64\\n\\t\"");
+	puts("\t\"wcsr PSW, r11\\n\\t\"");
 	puts("\t\"xor r0, r0, r0\\n\\t\"");
 	puts("\t\"xor r0, r0, r0\\n\\t\"");
 	puts("\t\"xor r0, r0, r0\\n\\t\"");
