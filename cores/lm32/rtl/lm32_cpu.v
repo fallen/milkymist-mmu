@@ -646,12 +646,12 @@ begin
 	begin
 		if (~stall_a)
 			$display("[%t] Addressing inst @ 0x%08X", $time, pc_a);
-		if (~stall_f)
+/*		if (~stall_f)
 			$display("[%t] Fetching   inst @ 0x%08X", $time, pc_f);
 		if (~stall_d)
 			$display("[%t] Decoding   inst @ 0x%08X", $time, pc_d);
 		if (~stall_x)
-			$display("[%t] Executing  inst @ 0x%08X", $time, pc_x);
+			$display("[%t] Executing  inst @ 0x%08X", $time, pc_x);*/
 	end
 end
 `endif

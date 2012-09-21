@@ -745,7 +745,7 @@ begin
 	begin
 		if (itlb_miss && ~itlb_miss_q && ~(exception_x == `TRUE && stall_m == `FALSE && stall_x == `FALSE && q_x == `TRUE))
 			itlb_miss_q <= `TRUE;
-		else if (itlb_miss_q && /* exception_m == `TRUE */ exception_x == `TRUE && stall_m == `FALSE && stall_x == `FALSE && q_x == `TRUE)
+		else if (itlb_miss_q && exception_x == `TRUE && stall_m == `FALSE && stall_x == `FALSE && q_x == `TRUE)
 			itlb_miss_q <= `FALSE;
 	end
 end
@@ -819,7 +819,7 @@ begin
 			else
 			begin
 				if (itlb_enabled != csr_psw[`LM32_CSR_PSW_ITLBE])
-//					$display("[%t] itlb_enabled <= 0x%08X", $time, csr_psw[`LM32_CSR_PSW_ITLBE]);
+					$display("[%t] itlb_enabled <= 0x%08X", $time, csr_psw[`LM32_CSR_PSW_ITLBE]);
 
 				itlb_enabled <= csr_psw[`LM32_CSR_PSW_ITLBE];
 			end
