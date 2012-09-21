@@ -799,7 +799,10 @@ begin
 			begin
 				if (~in_exception)
 				begin
-					in_exception <= 1;
+					if (~exception_m)
+						in_exception <= 1;
+					else
+						in_exception <= 0;
 				end
 				else
 				begin
@@ -812,9 +815,9 @@ begin
 					begin
 						in_exception <= 0;
 					end
+				end
 				$display("[%t] itlb_enabled <= 0x%08X upon exception", $time, 0);
 				itlb_enabled <= 0;
-				end
 			end
 			else
 			begin
@@ -853,8 +856,16 @@ begin
 			end
 			if (csr_write_enable && ~csr_write_data[0])
 			begin
+				if (csr == `LM32_CSR_TLB_PADDRESS /*&& (kernel_mode_reg == `LM32_KERNEL_MODE)*/)
+				begin
+					$display("[%t] ITLB WCSR to PADDR with csr_write_data == 0x%08X", $time, csr_write_data);
+`ifdef CFG_VERBOSE_DISPLAY_ENABLED
+					$display("it's an UPDATE at %t", $time);
+`endif
+					itlb_updating <= 1;
+				end
 				// FIXME : test for kernel mode is removed for testing purposes ONLY
-				if (csr == `LM32_CSR_TLB_CTRL /*&& (kernel_mode_reg == `LM32_KERNEL_MODE)*/)
+				else if (csr == `LM32_CSR_TLB_VADDRESS /*&& (kernel_mode_reg == `LM32_KERNEL_MODE)*/)
 				begin
 `ifdef CFG_VERBOSE_DISPLAY_ENABLED
 					$display("ITLB WCSR at %t with csr_write_data == 0x%08X", $time, csr_write_data);
@@ -869,14 +880,6 @@ begin
 						itlb_flush_set <= {addr_itlb_index_width{1'b1}};
 						itlb_state <= `LM32_TLB_STATE_FLUSH;
 						itlb_updating <= 0;
-					end
-
-					`LM32_ITLB_CTRL_UPDATE:
-					begin
-`ifdef CFG_VERBOSE_DISPLAY_ENABLED
-						$display("it's an UPDATE at %t", $time);
-`endif
-						itlb_updating <= 1;
 					end
 
 					`LM32_TLB_CTRL_INVALIDATE_ENTRY:

@@ -780,21 +780,20 @@ begin
 			end
 			if (csr_write_enable && csr_write_data[0])
 			begin
-				// FIXME : test for kernel mode is removed for testing purposes ONLY
-				if (csr == `LM32_CSR_TLB_CTRL /*&& (kernel_mode_reg == `LM32_KERNEL_MODE)*/)
+				if (csr == `LM32_CSR_TLB_PADDRESS)
 				begin
+					dtlb_updating <= 1;
+				end
+				// FIXME : test for kernel mode is removed for testing purposes ONLY
+				else if (csr == `LM32_CSR_TLB_VADDRESS /*&& (kernel_mode_reg == `LM32_KERNEL_MODE)*/)
+				begin
+					dtlb_updating <= 0;
 					case (csr_write_data[5:1])
 					`LM32_DTLB_CTRL_FLUSH:
 					begin
 						dtlb_flushing <= 1;
 						dtlb_flush_set <= {addr_dtlb_index_width{1'b1}};
 						dtlb_state <= `LM32_TLB_STATE_FLUSH;
-						dtlb_updating <= 0;
-					end
-
-					`LM32_DTLB_CTRL_UPDATE:
-					begin
-						dtlb_updating <= 1;
 					end
 
 					`LM32_TLB_CTRL_INVALIDATE_ENTRY:
@@ -807,6 +806,8 @@ begin
 
 					endcase
 				end
+				else
+					dtlb_updating <= 0;
 			end
 		end
 
