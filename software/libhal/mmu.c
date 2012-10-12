@@ -56,27 +56,33 @@ inline void mmu_itlb_map(unsigned int vpfn, unsigned int pfn)
 
 inline void mmu_dtlb_invalidate_line(unsigned int vaddr)
 {
-	asm volatile ("ori %0, %0, 0x21\n\t"
-		      "wcsr tlbvaddr, %0" :: "r"(vaddr) : );
+	vaddr |= 0x21;
+	asm volatile ("wcsr tlbvaddr, %0" :: "r"(vaddr) : );
 }
 
 inline void mmu_itlb_invalidate_line(unsigned int vaddr)
 {
-	asm volatile ("ori %0, %0, 0x20\n\t"
-		      "wcsr tlbvaddr, %0" :: "r"(vaddr) : );
+	vaddr |= 0x20;
+	asm volatile ("wcsr tlbvaddr, %0" :: "r"(vaddr) : );
 }
 
 inline void mmu_dtlb_invalidate(void)
 {
-	register unsigned int cmd = DTLB_CTRL_FLUSH_CMD;
+//	register unsigned int cmd = DTLB_CTRL_FLUSH_CMD;
 //	asm volatile("wcsr tlbctrl, %0" :: "r"(cmd) : );
+	asm volatile("xor r11, r11, r11\n\t"
+		     "ori r11, r11, 0x3\n\t"
+		     "wcsr tlbvaddr, r11" ::: "r11");
 
 }
 
 inline void mmu_itlb_invalidate(void)
 {
-	register unsigned int cmd = ITLB_CTRL_FLUSH_CMD;
+//	register unsigned int cmd = ITLB_CTRL_FLUSH_CMD;
 //	asm volatile("wcsr tlbctrl, %0" :: "r"(cmd) : );
+	asm volatile("xor r11, r11, r11\n\t"
+		     "ori r11, r11, 0x2\n\t"
+		     "wcsr tlbvaddr, r11" ::: "r11");
 
 }
 

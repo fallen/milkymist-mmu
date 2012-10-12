@@ -47,18 +47,18 @@ unsigned int mmu_map(unsigned int vaddr, unsigned int paddr, char metadata) {
 		{
 			puts("Already mapped, updating metadata !");
 			mappings[i].metadata |= metadata;
-//			if (mappings[i].metadata & ITLB_MAPPING)
-//				mmu_itlb_map(vaddr, paddr);
+			if (mappings[i].metadata & ITLB_MAPPING)
+				mmu_itlb_map(vaddr, paddr);
 			if (mappings[i].metadata & DTLB_MAPPING)
 				mmu_dtlb_map(vaddr, paddr);
 			return 1;
 		} else if ((vaddr == mappings[i].vaddr) && (paddr != mappings[i].paddr) && (mappings[i].metadata & MAPPING_IS_VALID))
 		{
-			puts("Vaddr already mapped to another Paddr (0x%08X), overwritting...\n", mappings[i].paddr);
+			printf("Vaddr already mapped to another Paddr (0x%08X), overwritting...\n", mappings[i].paddr);
 			mappings[i].paddr = paddr;
 			mappings[i].metadata = (metadata | MAPPING_IS_VALID);
-//			if (mappings[i].metadata & ITLB_MAPPING)
-//				mmu_itlb_map(vaddr, paddr);
+			if (mappings[i].metadata & ITLB_MAPPING)
+				mmu_itlb_map(vaddr, paddr);
 			if (mappings[i].metadata & DTLB_MAPPING)
 				mmu_dtlb_map(vaddr, paddr);
 			return 1;
@@ -75,8 +75,8 @@ unsigned int mmu_map(unsigned int vaddr, unsigned int paddr, char metadata) {
 	mappings[empty_slot].paddr = paddr;
 	mappings[empty_slot].metadata = (metadata | MAPPING_IS_VALID);
 
-//	if (metadata & ITLB_MAPPING)
-//		mmu_itlb_map(vaddr, paddr);
+	if (metadata & ITLB_MAPPING)
+		mmu_itlb_map(vaddr, paddr);
 
 	if (metadata & DTLB_MAPPING)
 		mmu_dtlb_map(vaddr, paddr);
