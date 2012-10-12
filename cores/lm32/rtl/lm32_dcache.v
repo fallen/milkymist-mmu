@@ -799,7 +799,8 @@ begin
 					`LM32_TLB_CTRL_INVALIDATE_ENTRY:
 					begin
 						dtlb_flushing <= 1;
-						dtlb_flush_set <= dtlb_update_vaddr_csr_reg[`LM32_DTLB_IDX_RNG];
+//						dtlb_flush_set <= dtlb_update_vaddr_csr_reg[`LM32_DTLB_IDX_RNG];
+						dtlb_flush_set <= csr_write_data[`LM32_DTLB_IDX_RNG];
 						dtlb_updating <= 0;
 						dtlb_state <= `LM32_TLB_STATE_CHECK;
 					end

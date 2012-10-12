@@ -888,7 +888,8 @@ begin
 						$display("it's an INVALIDATE ENTRY at %t", $time);
 `endif
 						itlb_flushing <= 1;
-						itlb_flush_set <= itlb_update_vaddr_csr_reg[`LM32_ITLB_IDX_RNG];
+//						itlb_flush_set <= itlb_update_vaddr_csr_reg[`LM32_ITLB_IDX_RNG];
+						itlb_flush_set <= csr_write_data[`LM32_ITLB_IDX_RNG];
 						itlb_updating <= 0;
 						itlb_state <= `LM32_TLB_STATE_CHECK;
 					end
