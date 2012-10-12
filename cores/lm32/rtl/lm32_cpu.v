@@ -2216,33 +2216,45 @@ begin
 `ifdef CFG_DEBUG_ENABLED
 		if (non_debug_exception_q_w == `TRUE)
 		begin
-		    // Save and then clear ITLB enable
+		    // Save and then clear ITLB and DTLB enable
 		    lm32_csr_psw_reg[`LM32_CSR_PSW_EITLBE] <= lm32_csr_psw_reg[`LM32_CSR_PSW_ITLBE];
+		    lm32_csr_psw_reg[`LM32_CSR_PSW_EDTLBE] <= lm32_csr_psw_reg[`LM32_CSR_PSW_DTLBE];
 		    lm32_csr_psw_reg[`LM32_CSR_PSW_ITLBE] <= `FALSE;
+		    lm32_csr_psw_reg[`LM32_CSR_PSW_DTLBE] <= `FALSE;
 		end
 		else if (debug_exception_q_w == `TRUE)
 		begin
 		    // Save and then clear TLB enable
 		    lm32_csr_psw_reg[`LM32_CSR_PSW_BITLBE] <= lm32_csr_psw_reg[`LM32_CSR_PSW_ITLBE];
 		    lm32_csr_psw_reg[`LM32_CSR_PSW_ITLBE] <= `FALSE;
+		    lm32_csr_psw_reg[`LM32_CSR_PSW_BDTLBE] <= lm32_csr_psw_reg[`LM32_CSR_PSW_DTLBE];
+		    lm32_csr_psw_reg[`LM32_CSR_PSW_DTLBE] <= `FALSE;
 		end
 `else
 		if (exception_q_w == `TRUE)
 		begin
-		    // Save and then clear ITLB enable
+		    // Save and then clear ITLB and DTLB enable
 		    lm32_csr_psw_reg[`LM32_CSR_PSW_EITLBE] <= lm32_csr_psw_reg[`LM32_CSR_PSW_ITLBE];
 		    lm32_csr_psw_reg[`LM32_CSR_PSW_ITLBE] <= `FALSE;
+		    lm32_csr_psw_reg[`LM32_CSR_PSW_EDTLBE] <= lm32_csr_psw_reg[`LM32_CSR_PSW_DTLBE];
+		    lm32_csr_psw_reg[`LM32_CSR_PSW_DTLBE] <= `FALSE;
 		end
 `endif
 		else if (stall_x == `FALSE)
 		begin
 		    if (eret_q_x == `TRUE)
-			// Restore ITLB enable
+		    begin
+			// Restore ITLB and DTLB enable
 			lm32_csr_psw_reg[`LM32_CSR_PSW_ITLBE] <= lm32_csr_psw_reg[`LM32_CSR_PSW_EITLBE];
+			lm32_csr_psw_reg[`LM32_CSR_PSW_DTLBE] <= lm32_csr_psw_reg[`LM32_CSR_PSW_EDTLBE];
+		    end
 `ifdef CFG_DEBUG_ENABLED
 		    else if (bret_q_x == `TRUE)
-			// Restore ITLB enable
+		    begin
+			// Restore ITLB and DTLB enable
 			lm32_csr_psw_reg[`LM32_CSR_PSW_ITLBE] <= lm32_csr_psw_reg[`LM32_CSR_PSW_BITLBE];
+			lm32_csr_psw_reg[`LM32_CSR_PSW_DTLBE] <= lm32_csr_psw_reg[`LM32_CSR_PSW_BDTLBE];
+		    end
 `endif
 		    else if (csr_write_enable_q_x == `TRUE)
 		    begin
