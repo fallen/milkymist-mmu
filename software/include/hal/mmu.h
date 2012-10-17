@@ -31,6 +31,8 @@
 #define MAPPING_COPY_ON_WRITE	(1 << 4)
 #define MAPPING_IS_VALID	(1 << 5)
 
+#define MAPPING_CAN_RW		(MAPPING_CAN_READ | MAPPING_CAN_WRITE)
+
 struct mmu_mapping {
 
 	unsigned int vaddr;

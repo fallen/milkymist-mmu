@@ -47,6 +47,9 @@ unsigned int mmu_map(unsigned int vaddr, unsigned int paddr, char metadata) {
 		{
 			puts("Already mapped, updating metadata !");
 			mappings[i].metadata |= metadata;
+			// set the permission bits in lower bits of paddr to be written in the TLB
+			paddr |= (metadata & MAPPING_CAN_RW);
+
 			if (mappings[i].metadata & ITLB_MAPPING)
 				mmu_itlb_map(vaddr, paddr);
 			if (mappings[i].metadata & DTLB_MAPPING)
@@ -57,6 +60,9 @@ unsigned int mmu_map(unsigned int vaddr, unsigned int paddr, char metadata) {
 			printf("Vaddr already mapped to another Paddr (0x%08X), overwritting...\n", mappings[i].paddr);
 			mappings[i].paddr = paddr;
 			mappings[i].metadata = (metadata | MAPPING_IS_VALID);
+			// set the permission bits in lower bits of paddr to be written in the TLB
+			paddr |= (metadata & MAPPING_CAN_RW);
+
 			if (mappings[i].metadata & ITLB_MAPPING)
 				mmu_itlb_map(vaddr, paddr);
 			if (mappings[i].metadata & DTLB_MAPPING)
@@ -74,6 +80,8 @@ unsigned int mmu_map(unsigned int vaddr, unsigned int paddr, char metadata) {
 	mappings[empty_slot].vaddr = vaddr;
 	mappings[empty_slot].paddr = paddr;
 	mappings[empty_slot].metadata = (metadata | MAPPING_IS_VALID);
+	// set the permission bits in lower bits of paddr to be written in the TLB
+	paddr |= (metadata & MAPPING_CAN_RW);
 
 	if (metadata & ITLB_MAPPING)
 		mmu_itlb_map(vaddr, paddr);
@@ -92,7 +100,7 @@ unsigned int get_mmu_mapping_for(unsigned int vaddr) {
 
 	for (i = 0 ; i < MAX_MMU_SLOTS ; ++i)
 		if ((mappings[i].metadata & MAPPING_IS_VALID) && (vaddr == mappings[i].vaddr))
-			return mappings[i].paddr;
+			return get_pfn(mappings[i].paddr);
 
 	return A_BAD_ADDR;
 }
