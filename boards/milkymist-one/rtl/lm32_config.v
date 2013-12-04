@@ -52,4 +52,19 @@ endfunction
 
 `define CLOG2 clog2
 
+//
+// MEMORY MANAGEMENT UNIT
+//
+
+// Enable instruction and data translation lookaside buffers and
+// restricted user mode.
+`define CFG_MMU_ENABLED
+`define CFG_MMU_WITH_ASID
+
+`ifdef CFG_MMU_ENABLED
+`ifdef CFG_MMU_WITH_ASID
+`define CFG_MMU_ASID_WIDTH               5
+`endif
+`endif
+
 `endif

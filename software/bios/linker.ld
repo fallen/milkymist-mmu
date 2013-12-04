@@ -54,4 +54,4 @@ SECTIONS
 	} > sdram
 }
 
-PROVIDE(_fstack = ORIGIN(sdram) + LENGTH(sdram) - 4);
+PROVIDE(_fstack = ORIGIN(sdram) + LENGTH(sdram) - 100);

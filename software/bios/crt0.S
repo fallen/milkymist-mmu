@@ -97,6 +97,124 @@ _interrupt_handler:
 	nop
 	nop
 
+_syscall_handler:
+	bi	_syscall_handler
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+
+_itlb_miss_exception:
+	bi	_itlb_miss_exception
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+
+
+_dtlb_miss_exception:
+	bi	_fake_dtlb_miss_exception_handler
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+
+_dtlb_fault_exception:
+	bi	_dtlb_fault_exception
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+
+_privilege_exception:
+	bi	_privilege_exception
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+	nop
+
+_fake_itlb_miss_exception_handler:
+	mvhi    r0, 0x47ff
+	ori	r0, r0, 0xfff0
+	sw	(r0+0), r1
+	sw	(r0+4), r2
+	sw	(r0+8), r3
+	xor	r0, r0, r0
+
+	mvhi	r2, 0xffff
+	ori	r2, r2, 0xf000
+
+	rcsr	r1, TLBPADDR
+	and	r1, r1, r2 /* r1 = r1 & r2 to discard page offset */
+
+	/* retrieve current ASID */
+//	rcsr	r2, PSW
+//	mvhi	r3, 1
+//	ori	r3, r3, 0xf000 /* build psw.asid mask */
+//	and	r2, r2, r3 /* mask out everything except ASID */
+//	sri	r2, r2, 5 /* shift psw.asid to be in place for being or'ed with tlbvaddr.asid */
+//	or	r2, r2, r1
+
+	wcsr	TLBVADDR, r1
+	wcsr	TLBPADDR, r1
+
+	mvhi    r0, 0x47ff
+	ori	r0, r0, 0xfff0
+	lw	r1, (r0+0)
+	lw	r2, (r0+4)
+	lw	r3, (r0+8)
+	xor	r0, r0, r0
+	eret
+
+_fake_dtlb_miss_exception_handler:
+	mvhi    r0, 0x47ff
+	ori	r0, r0, 0xfff0
+	sw	(r0+0), r1
+	sw	(r0+4), r2
+	sw	(r0+8), r3
+	xor	r0, r0, r0
+
+	mvhi	r2, 0xffff
+	ori	r2, r2, 0xf000
+
+	rcsr	r1, TLBPADDR
+	and	r1, r1, r2 /* r1 = r1 & r2 to discard page offset */
+	ori	r1, r1, 1 /* because we wanna update DTLB */
+
+	/* retrieve current ASID */
+	rcsr	r2, PSW
+	mvhi	r3, 1
+	ori	r3, r3, 0xf000 /* build psw.asid mask */
+	and	r2, r2, r3 /* mask out everything except ASID */
+	sri	r2, r2, 5 /* shift psw.asid to be in place for being or'ed with tlbvaddr.asid */
+	or	r2, r2, r1
+
+	wcsr	TLBVADDR, r2
+	wcsr	TLBPADDR, r1
+
+	mvhi    r0, 0x47ff
+	ori	r0, r0, 0xfff0
+	lw	r1, (r0+0)
+	lw	r2, (r0+4)
+	lw	r3, (r0+8)
+	xor	r0, r0, r0
+	eret
+
 macaddress:
 	.byte 0x10
 	.byte 0xe2
@@ -129,6 +247,12 @@ _crt0:
 
 .callMain:
 	mv      r1, r2
+
+	/* Activating ITLB and DTLB */
+	rcsr	r2, PSW
+	ori	r2, r2, 0x40
+	wcsr	PSW, r2
+
 	mvi     r2, 0
 	mvi     r3, 0
 	bi      main
