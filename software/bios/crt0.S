@@ -97,6 +97,12 @@ _interrupt_handler:
 	nop
 	nop
 
+
+// Those exception vectors loop on themselves
+// to make sure I can recognize when LM32 traps
+// because of them: it freezes the system
+// LM32 should not raise those exceptions
+// when only testing DTLB
 _syscall_handler:
 	bi	_syscall_handler
 	nop
@@ -107,6 +113,7 @@ _syscall_handler:
 	nop
 	nop
 
+// I won't enable ITLB
 _itlb_miss_exception:
 	bi	_itlb_miss_exception
 	nop
@@ -128,6 +135,8 @@ _dtlb_miss_exception:
 	nop
 	nop
 
+// I won't map a page "read-only"
+// So this one (dtlb fault) won't fire either
 _dtlb_fault_exception:
 	bi	_dtlb_fault_exception
 	nop
@@ -138,6 +147,7 @@ _dtlb_fault_exception:
 	nop
 	nop
 
+// I won't use the PSW.USR bit either
 _privilege_exception:
 	bi	_privilege_exception
 	nop
@@ -148,6 +158,8 @@ _privilege_exception:
 	nop
 	nop
 
+// This is not used yet because ITLB
+// does not have ASID support yet
 _fake_itlb_miss_exception_handler:
 	mvhi    r0, 0x47ff
 	ori	r0, r0, 0xfff0
@@ -181,38 +193,47 @@ _fake_itlb_miss_exception_handler:
 	xor	r0, r0, r0
 	eret
 
+// We need to save 3 registers
+// let's save them after the stack
+// cf linker.ld
+// PROVIDE(_fstack = ORIGIN(sdram) + LENGTH(sdram) - 100);
+// 100 bytes are reserved at the end of DDR SDRAM
 _fake_dtlb_miss_exception_handler:
 	mvhi    r0, 0x47ff
-	ori	r0, r0, 0xfff0
-	sw	(r0+0), r1
-	sw	(r0+4), r2
-	sw	(r0+8), r3
-	xor	r0, r0, r0
+	ori	r0, r0, 0xfff0 /* r0 = 0x47fffff0 */
+	sw	(r0+0), r1 /* Store r1 to 0x47fffff0 */
+	sw	(r0+4), r2 /* Store r2 to 0x47fffff4 */
+	sw	(r0+8), r3 /* Store r3 to 0x47fffff8 */
+	xor	r0, r0, r0 /* restore r0 back to 0 */
 
 	mvhi	r2, 0xffff
-	ori	r2, r2, 0xf000
+	ori	r2, r2, 0xf000 /* r2 = 0xfffff000; page frame number mask */
 
 	rcsr	r1, TLBPADDR
-	and	r1, r1, r2 /* r1 = r1 & r2 to discard page offset */
-	ori	r1, r1, 1 /* because we wanna update DTLB */
+	and	r1, r1, r2 /* r1 &= r2; to discard page offset */
+	ori	r1, r1, 1 /* r1 |= 1; because we want to update DTLB */
 
 	/* retrieve current ASID */
 	rcsr	r2, PSW
 	mvhi	r3, 1
-	ori	r3, r3, 0xf000 /* build psw.asid mask */
-	and	r2, r2, r3 /* mask out everything except ASID */
-	sri	r2, r2, 5 /* shift psw.asid to be in place for being or'ed with tlbvaddr.asid */
-	or	r2, r2, r1
+	ori	r3, r3, 0xf000 /* r3 = 0x1f000; build psw.asid mask */
+	and	r2, r2, r3 /* r2 &= r3; mask out everything except ASID */
+/*
+ * PSW.asid is PSW[16:12]
+ * TLBVADDR.asid is TLBVADDR[11:7]
+ */
+	sri	r2, r2, 5 /* r2 <<= 5; shift psw.asid to be in place for being or'ed with tlbvaddr.asid */
+	or	r2, r2, r1 /* r2 &= r1; to put ASID in the tlbvaddr.asid */
 
 	wcsr	TLBVADDR, r2
-	wcsr	TLBPADDR, r1
+	wcsr	TLBPADDR, r1 /* trigger DTLB entry update */
 
 	mvhi    r0, 0x47ff
-	ori	r0, r0, 0xfff0
-	lw	r1, (r0+0)
-	lw	r2, (r0+4)
-	lw	r3, (r0+8)
-	xor	r0, r0, r0
+	ori	r0, r0, 0xfff0 /* r0 = 0x47fffff0 */
+	lw	r1, (r0+0) /* Restore r1 */
+	lw	r2, (r0+4) /* Restore r2 */
+	lw	r3, (r0+8) /* Restore r3 */
+	xor	r0, r0, r0 /* restore r0 back to 0 */
 	eret
 
 macaddress:
@@ -248,10 +269,10 @@ _crt0:
 .callMain:
 	mv      r1, r2
 
-	/* Activating ITLB and DTLB */
-	rcsr	r2, PSW
-	ori	r2, r2, 0x40
-	wcsr	PSW, r2
+	/* Activating DTLB */
+	rcsr	r2, PSW /* r2 = PSW; */
+	ori	r2, r2, 0x40 /* r2 |= 0x40; */
+	wcsr	PSW, r2 /* PSW = r2; */
 
 	mvi     r2, 0
 	mvi     r3, 0
